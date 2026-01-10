@@ -6,7 +6,7 @@
 - Use type hints for all function signatures and class attributes
 - Prefer f-strings over .format() or % formatting
 - Use pathlib.Path instead of os.path for file operations
-- Use dataclasses or Pydantic models for data structures
+- Use dataclasses or Pydantic models for data structures - prefer data models over dictionaries
 - Prefer list/dict/set comprehensions when they improve readability
 
 ## Code Quality
@@ -17,6 +17,7 @@
 - Use descriptive variable names - never use single letter variables unless explicitly asked to
 - Use Enums and constants (CONST) instead of magic values - avoid hardcoded strings, numbers, or boolean values in code
 - Enums should also be used for key mappings (dictionary keys, column names, etc.) to prevent typos and improve maintainability
+- Prefer data models (Pydantic models, dataclasses, NamedTuple) over dictionaries for structured data - use dict only for dynamic key-value mappings or when interfacing with external APIs/CSV parsing
 - Add docstrings to all public functions, classes, and modules (Google or NumPy style)
 - Keep functions focused on a single responsibility
 - Prefer guard statements and early returns over deep nesting to improve readability
@@ -52,8 +53,8 @@
 ## Documentation
 - Include docstrings in Google or NumPy style format
 - Document complex algorithms or business logic with inline comments
-- Keep README.md updated with setup instructions and usage examples
 - Document all public APIs
+- Never update documentation files (README.md, docs/, etc.) unless explicitly asked to
 
 ## Performance
 - Profile before optimizing
@@ -99,7 +100,7 @@
 - Always run linters (ruff) before committing
 - Ensure type checking passes (mypy)
 - Run tests before committing changes
-- Update documentation when changing APIs
+- Update documentation files only when explicitly asked to
 - Consider backward compatibility for library code
 
 ## Code Review Checklist
@@ -110,6 +111,7 @@
 - [ ] No hardcoded secrets or credentials
 - [ ] No magic values - Enums/constants used instead
 - [ ] Key mappings use Enums where applicable
+- [ ] Data models used instead of dictionaries for structured data
 - [ ] Error handling is appropriate
 - [ ] Code follows PEP 8 style guide
 - [ ] Imports are properly organized
