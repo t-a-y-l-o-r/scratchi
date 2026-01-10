@@ -1,0 +1,112 @@
+# Python Project Cursor Rules
+
+## Language and Style
+- Use Python 3.10+ features (type hints, match/case, structural pattern matching)
+- Follow PEP 8 style guidelines strictly
+- Use type hints for all function signatures and class attributes
+- Prefer f-strings over .format() or % formatting
+- Use pathlib.Path instead of os.path for file operations
+- Use dataclasses or Pydantic models for data structures
+- Prefer list/dict/set comprehensions when they improve readability
+
+## Code Quality
+- Always add type hints using typing module or built-in types (list[str], dict[str, int], etc.)
+- Use mypy for type checking (configured in pyproject.toml)
+- Use ruff for linting and formatting (faster than black/flake8)
+- Maximum line length: 100 characters (unless the project specifies otherwise)
+- Use descriptive variable names - avoid single letter variables except for loops/indexes
+- Add docstrings to all public functions, classes, and modules (Google or NumPy style)
+- Keep functions focused on a single responsibility
+- Prefer guard statements and early returns over deep nesting to improve readability
+- Prefer composition over inheritance where possible
+
+## Error Handling
+- Use specific exception types, avoid bare `except:` clauses
+- Use context managers (with statements) for resource management
+- Raise meaningful exceptions with descriptive error messages
+- Use typing.Protocol for structural subtyping instead of ABC when appropriate
+
+## Logging
+- Always use the `logging` module instead of `print()` statements
+- Create module-level loggers using `logging.getLogger(__name__)`
+- Use appropriate log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Include contextual information in log messages (use structured logging when beneficial)
+- Configure logging at the application entry point, not in library code
+
+## Dependencies
+- Prefer standard library solutions when possible
+- Use pyproject.toml for dependency management (PEP 517/518)
+- Pin dependency versions in requirements files for reproducibility
+- Add comments explaining non-obvious dependency choices
+
+## Testing
+- Write tests for all public functions and classes
+- Use pytest as the testing framework
+- Place tests in `tests/` directory mirroring the source structure
+- Use fixtures for test setup/teardown
+- Aim for high test coverage but prioritize meaningful tests over coverage metrics
+- Use pytest.mark.parametrize for testing multiple scenarios
+
+## Documentation
+- Include docstrings in Google or NumPy style format
+- Document complex algorithms or business logic with inline comments
+- Keep README.md updated with setup instructions and usage examples
+- Document all public APIs
+
+## Performance
+- Profile before optimizing
+- Use generators and generator expressions for memory efficiency
+- Consider using async/await for I/O-bound operations
+- Use appropriate data structures (sets for membership testing, deque for queues)
+
+## Project Structure
+- Use `src/` layout for packages (src/project_name/)
+- Keep the main package code in src/
+- Place CLI scripts in a `scripts/` or use package entry points
+- Use __init__.py to control public API (__all__ exports)
+- Keep configuration separate from code (use config files or environment variables)
+
+## Imports
+- Group imports: stdlib, third-party, local (separated by blank lines)
+- Use absolute imports for project code
+- Avoid relative imports except within package internals
+- Use `from __future__ import annotations` at the top of files for forward references
+
+## Git and Version Control
+- Keep commits focused and atomic
+- Write clear commit messages in imperative mood
+- Don't commit __pycache__, .pyc files, or virtual environments
+- Use .gitignore appropriately (already configured)
+
+## Security
+- Never commit secrets, API keys, or credentials
+- Use environment variables for sensitive configuration
+- Validate and sanitize all user inputs
+- Be cautious with eval(), exec(), and pickle
+
+## Modern Python Features
+- Use match/case statements for pattern matching (Python 3.10+)
+- Use typing.Generic and typing.TypeVar for generic types
+- Prefer typing.Protocol over ABC for structural subtyping
+- Use dataclasses.dataclass or typing.NamedTuple for simple data containers
+- Use typing.Literal for string/enum-like types
+- Use typing.Union or | operator (Python 3.10+) for union types
+
+## When Making Changes
+- Always run linters (ruff) before committing
+- Ensure type checking passes (mypy)
+- Run tests before committing changes
+- Update documentation when changing APIs
+- Consider backward compatibility for library code
+
+## Code Review Checklist
+- [ ] Type hints added to all functions
+- [ ] Docstrings added to public APIs
+- [ ] Tests written for new functionality
+- [ ] Linter and type checker pass
+- [ ] No hardcoded secrets or credentials
+- [ ] Error handling is appropriate
+- [ ] Code follows PEP 8 style guide
+- [ ] Imports are properly organized
+- [ ] Guard statements and early returns used instead of deep nesting
+- [ ] Logger used instead of print statements
