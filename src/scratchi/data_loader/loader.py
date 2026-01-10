@@ -1,4 +1,11 @@
-"""CSV loader for plan benefits data."""
+"""CSV loader for plan benefits data.
+
+Performance Notes:
+- Currently using pandas for CSV reading (~20s for 1.4M rows)
+- Future optimization: Consider migrating to Polars for 5-10x faster CSV reading
+- See docs/polars-migration-plan.md for migration details
+- Current optimizations: itertuples(), pre-computed field mappings, removed row.to_dict()
+"""
 
 import logging
 from pathlib import Path
@@ -40,34 +47,35 @@ CSV_COLUMN_MAPPING: dict[CSVColumn, str] = {
 }
 
 
-def _build_column_index_mapping(df: pd.DataFrame) -> dict[str, int]:
-    """Build mapping from CSV column name to DataFrame column index.
+def _build_column_index_mapping(df: pd.DataFrame) -> list[tuple[int, str]]:
+    """Build list of (tuple_index, model_field) pairs for efficient row parsing.
 
     Args:
         df: DataFrame with CSV data
 
     Returns:
-        Dictionary mapping CSV column names to their index positions
+        List of (column_index, model_field_name) tuples for columns that exist
     """
-    column_indices: dict[str, int] = {}
-    for csv_column_enum in CSVColumn:
+    field_mappings: list[tuple[int, str]] = []
+    for csv_column_enum, model_field in CSV_COLUMN_MAPPING.items():
         csv_column_name = csv_column_enum.value
         if csv_column_name in df.columns:
-            column_indices[csv_column_name] = df.columns.get_loc(csv_column_name)
+            idx = df.columns.get_loc(csv_column_name)
+            field_mappings.append((idx, model_field))
         else:
             logger.warning(f"Missing column '{csv_column_name}' in CSV file")
-    return column_indices
+    return field_mappings
 
 
 def parse_plan_benefit_from_tuple(
     row_tuple: tuple[Any, ...],
-    column_indices: dict[str, int],
+    field_mappings: list[tuple[int, str]],
 ) -> PlanBenefit:
     """Parse a row tuple from itertuples into a PlanBenefit model.
 
     Args:
         row_tuple: Tuple from df.itertuples() containing row values
-        column_indices: Mapping from CSV column names to tuple indices
+        field_mappings: Pre-computed list of (tuple_index, model_field) pairs
 
     Returns:
         PlanBenefit model instance
@@ -75,14 +83,11 @@ def parse_plan_benefit_from_tuple(
     Raises:
         ValueError: If required fields are missing or invalid
     """
-    # Map CSV column names to model field names using pre-computed indices
+    # Build mapped_data dict directly from pre-computed index/field pairs
     # With index=False, tuple elements correspond directly to DataFrame columns in order
     mapped_data: dict[str, Any] = {}
-    for csv_column_enum, model_field in CSV_COLUMN_MAPPING.items():
-        csv_column_name = csv_column_enum.value
-        if csv_column_name in column_indices:
-            idx = column_indices[csv_column_name]
-            mapped_data[model_field] = row_tuple[idx]
+    for idx, model_field in field_mappings:
+        mapped_data[model_field] = row_tuple[idx]
 
     try:
         return PlanBenefit(**mapped_data)
@@ -157,8 +162,9 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
 
         logger.info(f"Loaded {len(df)} rows from CSV")
 
-        # Pre-compute column index mapping once (performance optimization)
-        column_indices = _build_column_index_mapping(df)
+        # Pre-compute field mappings once (performance optimization)
+        # Returns list of (tuple_index, model_field) pairs for direct access
+        field_mappings = _build_column_index_mapping(df)
 
         benefits: list[PlanBenefit] = []
         errors: list[tuple[int, str]] = []
@@ -167,7 +173,7 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
         # index=False means we don't include the DataFrame index in the tuple
         for row_num, row_tuple in enumerate(df.itertuples(index=False, name=None), start=1):
             try:
-                benefit = parse_plan_benefit_from_tuple(row_tuple, column_indices)
+                benefit = parse_plan_benefit_from_tuple(row_tuple, field_mappings)
                 benefits.append(benefit)
             except Exception as error:
                 # row_num is 1-based from enumerate, add 1 for header row
