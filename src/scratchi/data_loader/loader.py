@@ -40,6 +40,57 @@ CSV_COLUMN_MAPPING: dict[CSVColumn, str] = {
 }
 
 
+def _build_column_index_mapping(df: pd.DataFrame) -> dict[str, int]:
+    """Build mapping from CSV column name to DataFrame column index.
+
+    Args:
+        df: DataFrame with CSV data
+
+    Returns:
+        Dictionary mapping CSV column names to their index positions
+    """
+    column_indices: dict[str, int] = {}
+    for csv_column_enum in CSVColumn:
+        csv_column_name = csv_column_enum.value
+        if csv_column_name in df.columns:
+            column_indices[csv_column_name] = df.columns.get_loc(csv_column_name)
+        else:
+            logger.warning(f"Missing column '{csv_column_name}' in CSV file")
+    return column_indices
+
+
+def parse_plan_benefit_from_tuple(
+    row_tuple: tuple[Any, ...],
+    column_indices: dict[str, int],
+) -> PlanBenefit:
+    """Parse a row tuple from itertuples into a PlanBenefit model.
+
+    Args:
+        row_tuple: Tuple from df.itertuples() containing row values
+        column_indices: Mapping from CSV column names to tuple indices
+
+    Returns:
+        PlanBenefit model instance
+
+    Raises:
+        ValueError: If required fields are missing or invalid
+    """
+    # Map CSV column names to model field names using pre-computed indices
+    # With index=False, tuple elements correspond directly to DataFrame columns in order
+    mapped_data: dict[str, Any] = {}
+    for csv_column_enum, model_field in CSV_COLUMN_MAPPING.items():
+        csv_column_name = csv_column_enum.value
+        if csv_column_name in column_indices:
+            idx = column_indices[csv_column_name]
+            mapped_data[model_field] = row_tuple[idx]
+
+    try:
+        return PlanBenefit(**mapped_data)
+    except Exception as error:
+        logger.error(f"Failed to parse row: {mapped_data}")
+        raise ValueError(f"Invalid row data: {error}") from error
+
+
 def parse_plan_benefit_row(row: dict[str, Any]) -> PlanBenefit:
     """Parse a single CSV row into a PlanBenefit model.
 
@@ -51,6 +102,10 @@ def parse_plan_benefit_row(row: dict[str, Any]) -> PlanBenefit:
 
     Raises:
         ValueError: If required fields are missing or invalid
+
+    Note:
+        This function is kept for backwards compatibility with tests.
+        For performance, use parse_plan_benefit_from_tuple() instead.
     """
     # Map CSV column names (strings from CSV) to model field names using Enum mapping
     mapped_data: dict[str, Any] = {}
@@ -102,18 +157,23 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
 
         logger.info(f"Loaded {len(df)} rows from CSV")
 
+        # Pre-compute column index mapping once (performance optimization)
+        column_indices = _build_column_index_mapping(df)
+
         benefits: list[PlanBenefit] = []
         errors: list[tuple[int, str]] = []
 
-        # Convert each row to a dictionary and parse
-        for idx, row in df.iterrows():
+        # Use itertuples() instead of iterrows() for 10-100x performance improvement
+        # index=False means we don't include the DataFrame index in the tuple
+        for row_num, row_tuple in enumerate(df.itertuples(index=False, name=None), start=1):
             try:
-                row_dict = row.to_dict()
-                benefit = parse_plan_benefit_row(row_dict)
+                benefit = parse_plan_benefit_from_tuple(row_tuple, column_indices)
                 benefits.append(benefit)
             except Exception as error:
-                error_msg = f"Row {idx + 2}: {error}"  # +2 for header and 0-based index
-                errors.append((idx + 2, str(error)))
+                # row_num is 1-based from enumerate, add 1 for header row
+                actual_row_num = row_num + 1
+                error_msg = f"Row {actual_row_num}: {error}"
+                errors.append((actual_row_num, str(error)))
                 logger.warning(error_msg)
 
         if errors:

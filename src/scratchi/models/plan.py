@@ -193,12 +193,9 @@ class PlanBenefit(BaseModel):
     @model_validator(mode="after")
     def validate_covered_status(self) -> "PlanBenefit":
         """Validate that coverage status makes sense with other fields."""
-        if self.is_covered == CoverageStatus.NOT_COVERED:
-            # If not covered, most cost-sharing fields should be empty
-            # but we don't enforce this strictly as data may have inconsistencies
-            logger.debug(
-                f"Plan {self.plan_id} benefit {self.benefit_name} is not covered",
-            )
+        # Note: If not covered, most cost-sharing fields should be empty
+        # but we don't enforce this strictly as data may have inconsistencies
+        # Debug logging removed for performance (called 1.4M+ times)
         return self
 
     def get_coinsurance_rate(self, field: str) -> float | None:
