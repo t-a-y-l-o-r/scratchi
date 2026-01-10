@@ -355,16 +355,13 @@ class TestLoadPlansFromCSV:
         csv_content = [
             CSV_HEADER_ROW,
             create_csv_data_row(
-                business_year="",  # Missing BusinessYear
+                business_year="",  # Missing BusinessYear (required field)
             ),
         ]
         csv_path = self.create_test_csv(csv_content)
         try:
-            # Should raise ValueError or skip the row
-            benefits = load_plans_from_csv(csv_path)
-            # If it doesn't raise, it should skip invalid rows
-            assert len(benefits) == 0 or all(
-                isinstance(benefit, PlanBenefit) for benefit in benefits
-            )
+            # Should raise ValueError when all rows are invalid
+            with pytest.raises(ValueError, match="No valid plan benefits found"):
+                load_plans_from_csv(csv_path)
         finally:
             csv_path.unlink()
