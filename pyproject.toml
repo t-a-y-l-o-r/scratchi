@@ -20,3 +20,9 @@ dev = [
     "mypy>=1.0.0",
     "ruff>=0.1.0",
 ]
+
+[project.scripts]
+main = "scratchi.main:main"
+
+[tool.uv]
+package = true
