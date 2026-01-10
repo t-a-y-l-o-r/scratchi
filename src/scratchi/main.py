@@ -2,19 +2,19 @@
 
 import logging
 import sys
-from pathlib import Path
 
+from scratchi.config import settings
 from scratchi.data_loader import load_plans_from_csv
 
 logger = logging.getLogger(__name__)
 
 
 def _configure_logging() -> None:
-    """Configure logging for the application."""
+    """Configure logging for the application using settings."""
     logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        level=settings.logging_level_int,
+        format=settings.log_format,
+        datefmt=settings.log_date_format,
         force=True,  # Override any existing configuration
     )
 
@@ -28,10 +28,8 @@ def main() -> int:
         Exit code (0 for success, non-zero for failure).
     """
     _configure_logging()
-    
-    # Find the sample CSV file relative to the project root
-    project_root = Path(__file__).parent.parent.parent
-    csv_path = project_root / "data" / "sample.csv"
+
+    csv_path = settings.csv_path
 
     if not csv_path.exists():
         logger.error(f"Sample CSV file not found: {csv_path}")
@@ -56,9 +54,10 @@ def main() -> int:
         logger.info(f"  States: {', '.join(sorted(unique_states))}")
         logger.info("")
 
-        # Display sample data (first 3 benefits)
-        logger.info("Sample Benefits (first 3):")
-        for i, benefit in enumerate(benefits[:3], 1):
+        # Display sample data
+        sample_count = settings.sample_display_count
+        logger.info(f"Sample Benefits (first {sample_count}):")
+        for i, benefit in enumerate(benefits[:sample_count], 1):
             logger.info(f"  {i}. {benefit.benefit_name}")
             logger.info(f"     Plan: {benefit.plan_id}")
             logger.info(f"     State: {benefit.state_code}")
