@@ -1,7 +1,7 @@
 # Python Project Cursor Rules
 
 ## Language and Style
-- Use Python 3.10+ features (type hints, match/case, structural pattern matching)
+- Use Python 3.12 features (type hints, match/case, structural pattern matching)
 - Follow PEP 8 style guidelines strictly
 - Use type hints for all function signatures and class attributes
 - Prefer f-strings over .format() or % formatting
@@ -14,7 +14,9 @@
 - Use mypy for type checking (configured in pyproject.toml)
 - Use ruff for linting and formatting (faster than black/flake8)
 - Maximum line length: 100 characters (unless the project specifies otherwise)
-- Use descriptive variable names - avoid single letter variables except for loops/indexes
+- Use descriptive variable names - never use single letter variables unless explicitly asked to
+- Use Enums and constants (CONST) instead of magic values - avoid hardcoded strings, numbers, or boolean values in code
+- Enums should also be used for key mappings (dictionary keys, column names, etc.) to prevent typos and improve maintainability
 - Add docstrings to all public functions, classes, and modules (Google or NumPy style)
 - Keep functions focused on a single responsibility
 - Prefer guard statements and early returns over deep nesting to improve readability
@@ -70,7 +72,7 @@
 - Group imports: stdlib, third-party, local (separated by blank lines)
 - Use absolute imports for project code
 - Avoid relative imports except within package internals
-- Use `from __future__ import annotations` at the top of files for forward references
+- Never use `from __future__ import annotations` unless explicitly asked to
 
 ## Git and Version Control
 - Keep commits focused and atomic
@@ -85,12 +87,13 @@
 - Be cautious with eval(), exec(), and pickle
 
 ## Modern Python Features
-- Use match/case statements for pattern matching (Python 3.10+)
+- Use match/case statements for pattern matching (Python 3.12)
 - Use typing.Generic and typing.TypeVar for generic types
 - Prefer typing.Protocol over ABC for structural subtyping
 - Use dataclasses.dataclass or typing.NamedTuple for simple data containers
 - Use typing.Literal for string/enum-like types
-- Use typing.Union or | operator (Python 3.10+) for union types
+- Use | operator (Python 3.12) for union types
+- Use enum.Enum or enum.StrEnum (Python 3.11+) for enumerated constants instead of string literals
 
 ## When Making Changes
 - Always run linters (ruff) before committing
@@ -105,6 +108,8 @@
 - [ ] Tests written for new functionality
 - [ ] Linter and type checker pass
 - [ ] No hardcoded secrets or credentials
+- [ ] No magic values - Enums/constants used instead
+- [ ] Key mappings use Enums where applicable
 - [ ] Error handling is appropriate
 - [ ] Code follows PEP 8 style guide
 - [ ] Imports are properly organized
