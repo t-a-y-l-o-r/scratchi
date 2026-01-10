@@ -1,0 +1,2 @@
+# scratchi
+Agentic Scratch Paper
