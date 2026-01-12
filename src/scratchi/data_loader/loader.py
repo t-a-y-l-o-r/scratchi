@@ -13,7 +13,7 @@ from typing import Any
 import polars as pl
 
 from scratchi.models.constants import CSVColumn
-from scratchi.models.plan import PlanBenefit
+from scratchi.models.plan import Plan, PlanBenefit
 
 logger = logging.getLogger(__name__)
 
@@ -292,3 +292,94 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
     except Exception as error:
         logger.error(f"Unexpected error loading CSV: {error}")
         raise
+
+
+def aggregate_plans_from_benefits(benefits: list[PlanBenefit]) -> list[Plan]:
+    """Group PlanBenefit objects by plan_id into Plan objects.
+
+    Args:
+        benefits: List of PlanBenefit objects
+
+    Returns:
+        List of Plan objects, one per unique plan_id
+
+    Raises:
+        ValueError: If benefits list is empty or contains invalid data
+    """
+    if not benefits:
+        raise ValueError("Cannot aggregate plans from empty benefits list")
+
+    # Group benefits by plan_id
+    benefits_by_plan: dict[str, list[PlanBenefit]] = {}
+    for benefit in benefits:
+        plan_id = benefit.plan_id
+        if plan_id not in benefits_by_plan:
+            benefits_by_plan[plan_id] = []
+        benefits_by_plan[plan_id].append(benefit)
+
+    # Create Plan objects from grouped benefits
+    plans: list[Plan] = []
+    for plan_id, plan_benefits in benefits_by_plan.items():
+        try:
+            plan = Plan.from_benefits(plan_benefits)
+            plans.append(plan)
+        except ValueError as error:
+            logger.warning(f"Failed to create Plan for {plan_id}: {error}")
+            # Continue processing other plans
+
+    if not plans:
+        raise ValueError("No valid plans could be created from benefits")
+
+    logger.info(f"Aggregated {len(benefits)} benefits into {len(plans)} plans")
+    return plans
+
+
+def create_plan_index(plans: list[Plan]) -> dict[str, Plan]:
+    """Create a dictionary index of plans keyed by plan_id for fast lookup.
+
+    Args:
+        plans: List of Plan objects
+
+    Returns:
+        Dictionary mapping plan_id to Plan object
+
+    Raises:
+        ValueError: If duplicate plan_ids are found
+    """
+    plan_index: dict[str, Plan] = {}
+    duplicate_ids: list[str] = []
+
+    for plan in plans:
+        plan_id = plan.plan_id
+        if plan_id in plan_index:
+            duplicate_ids.append(plan_id)
+            logger.warning(f"Duplicate plan_id found: {plan_id}")
+        else:
+            plan_index[plan_id] = plan
+
+    if duplicate_ids:
+        raise ValueError(
+            f"Found {len(duplicate_ids)} duplicate plan_ids: {duplicate_ids[:5]}",
+        )
+
+    logger.info(f"Created plan index with {len(plan_index)} plans")
+    return plan_index
+
+
+def load_plans_from_csv_aggregated(csv_path: str | Path) -> list[Plan]:
+    """Load plan benefits from CSV and aggregate into Plan objects.
+
+    This is a convenience function that combines loading and aggregation.
+
+    Args:
+        csv_path: Path to CSV file
+
+    Returns:
+        List of Plan objects
+
+    Raises:
+        FileNotFoundError: If CSV file doesn't exist
+        ValueError: If CSV parsing fails or no valid plans can be created
+    """
+    benefits = load_plans_from_csv(csv_path)
+    return aggregate_plans_from_benefits(benefits)

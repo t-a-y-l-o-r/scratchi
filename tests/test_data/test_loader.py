@@ -7,7 +7,13 @@ from typing import Any
 
 import pytest
 
-from scratchi.data_loader import load_plans_from_csv, parse_plan_benefit_row
+from scratchi.data_loader import (
+    aggregate_plans_from_benefits,
+    create_plan_index,
+    load_plans_from_csv,
+    load_plans_from_csv_aggregated,
+    parse_plan_benefit_row,
+)
 from scratchi.models.constants import (
     CSVColumn,
     CoverageStatus,
@@ -363,5 +369,129 @@ class TestLoadPlansFromCSV:
             # Should raise ValueError when all rows are invalid
             with pytest.raises(ValueError, match="No valid plan benefits found"):
                 load_plans_from_csv(csv_path)
+        finally:
+            csv_path.unlink()
+
+
+class TestPlanAggregation:
+    """Test cases for plan aggregation functionality."""
+
+    def test_aggregate_plans_from_csv_benefits(self) -> None:
+        """Test aggregating plans from CSV-loaded benefits."""
+        csv_content = [
+            CSV_HEADER_ROW,
+            create_csv_data_row(
+                plan_id="PLAN-001",
+                benefit_name="Basic Dental Care - Adult",
+                coins_inn_tier1="35.00%",
+                ehb_var_reason=EHBStatus.NOT_EHB,
+                is_excl_from_inn_moop=YesNoStatus.YES,
+                is_excl_from_oon_moop=YesNoStatus.YES,
+            ),
+            create_csv_data_row(
+                plan_id="PLAN-001",
+                benefit_name="Basic Dental Care - Child",
+                coins_inn_tier1="60.00%",
+                is_ehb=EHBStatus.YES,
+                ehb_var_reason=EHBVarReason.SUBSTANTIALLY_EQUAL,
+                is_excl_from_inn_moop=YesNoStatus.NO,
+                is_excl_from_oon_moop=YesNoStatus.NO,
+            ),
+            create_csv_data_row(
+                plan_id="PLAN-002",
+                benefit_name="Orthodontia - Child",
+                coins_inn_tier1="50.00%",
+                is_ehb=EHBStatus.YES,
+                ehb_var_reason=EHBVarReason.SUBSTANTIALLY_EQUAL,
+                is_excl_from_inn_moop=YesNoStatus.NO,
+                is_excl_from_oon_moop=YesNoStatus.NO,
+            ),
+        ]
+        csv_path = self.create_test_csv(csv_content)
+        try:
+            benefits = load_plans_from_csv(csv_path)
+            plans = aggregate_plans_from_benefits(benefits)
+
+            assert len(plans) == 2
+            plan_ids = {plan.plan_id for plan in plans}
+            assert plan_ids == {"PLAN-001", "PLAN-002"}
+
+            plan_001 = next(p for p in plans if p.plan_id == "PLAN-001")
+            assert len(plan_001.benefits) == 2
+            assert "Basic Dental Care - Adult" in plan_001.benefits
+            assert "Basic Dental Care - Child" in plan_001.benefits
+
+            plan_002 = next(p for p in plans if p.plan_id == "PLAN-002")
+            assert len(plan_002.benefits) == 1
+            assert "Orthodontia - Child" in plan_002.benefits
+        finally:
+            csv_path.unlink()
+
+    def test_load_plans_from_csv_aggregated(self) -> None:
+        """Test loading and aggregating plans in one step."""
+        csv_content = [
+            CSV_HEADER_ROW,
+            create_csv_data_row(
+                plan_id="PLAN-001",
+                benefit_name="Benefit 1",
+                coins_inn_tier1="35.00%",
+                ehb_var_reason=EHBStatus.NOT_EHB,
+                is_excl_from_inn_moop=YesNoStatus.YES,
+                is_excl_from_oon_moop=YesNoStatus.YES,
+            ),
+            create_csv_data_row(
+                plan_id="PLAN-001",
+                benefit_name="Benefit 2",
+                coins_inn_tier1="60.00%",
+                is_ehb=EHBStatus.YES,
+                ehb_var_reason=EHBVarReason.SUBSTANTIALLY_EQUAL,
+                is_excl_from_inn_moop=YesNoStatus.NO,
+                is_excl_from_oon_moop=YesNoStatus.NO,
+            ),
+        ]
+        csv_path = self.create_test_csv(csv_content)
+        try:
+            plans = load_plans_from_csv_aggregated(csv_path)
+
+            assert len(plans) == 1
+            assert plans[0].plan_id == "PLAN-001"
+            assert len(plans[0].benefits) == 2
+        finally:
+            csv_path.unlink()
+
+    def test_create_plan_index(self) -> None:
+        """Test creating a plan index for fast lookup."""
+        csv_content = [
+            CSV_HEADER_ROW,
+            create_csv_data_row(
+                plan_id="PLAN-001",
+                benefit_name="Benefit 1",
+                coins_inn_tier1="35.00%",
+                ehb_var_reason=EHBStatus.NOT_EHB,
+                is_excl_from_inn_moop=YesNoStatus.YES,
+                is_excl_from_oon_moop=YesNoStatus.YES,
+            ),
+            create_csv_data_row(
+                plan_id="PLAN-002",
+                benefit_name="Benefit 2",
+                coins_inn_tier1="60.00%",
+                is_ehb=EHBStatus.YES,
+                ehb_var_reason=EHBVarReason.SUBSTANTIALLY_EQUAL,
+                is_excl_from_inn_moop=YesNoStatus.NO,
+                is_excl_from_oon_moop=YesNoStatus.NO,
+            ),
+        ]
+        csv_path = self.create_test_csv(csv_content)
+        try:
+            plans = load_plans_from_csv_aggregated(csv_path)
+            index = create_plan_index(plans)
+
+            assert len(index) == 2
+            assert "PLAN-001" in index
+            assert "PLAN-002" in index
+
+            plan_001 = index["PLAN-001"]
+            assert plan_001.plan_id == "PLAN-001"
+            assert "Benefit 1" in plan_001.benefits
         finally:
             csv_path.unlink()

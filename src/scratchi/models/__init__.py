@@ -10,9 +10,10 @@ from scratchi.models.constants import (
     EHBVarReason,
     YesNoStatus,
 )
-from scratchi.models.plan import PlanBenefit
+from scratchi.models.plan import Plan, PlanBenefit
 
 __all__ = [
+    "Plan",
     "PlanBenefit",
     "CoverageStatus",
     "YesNoStatus",

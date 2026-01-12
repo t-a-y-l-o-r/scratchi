@@ -263,3 +263,142 @@ class PlanBenefit(BaseModel):
         return None
 
     model_config = ConfigDict(frozen=True)  # Make models immutable after creation
+
+
+class Plan(BaseModel):
+    """Model representing an aggregated insurance plan with all its benefits.
+
+    This model groups multiple PlanBenefit objects by plan_id into a single
+    plan object with a dictionary of benefits keyed by benefit_name.
+    """
+
+    plan_id: str = Field(..., description="Unique plan identifier")
+    standard_component_id: str = Field(..., description="Standard component identifier")
+    benefits: dict[str, PlanBenefit] = Field(
+        ...,
+        description="Dictionary of benefits keyed by benefit_name",
+    )
+    state_code: str = Field(..., description="State abbreviation")
+    issuer_id: str = Field(..., description="Insurance issuer ID")
+    business_year: int = Field(..., description="Plan year")
+
+    @classmethod
+    def from_benefits(cls, benefits: list[PlanBenefit]) -> "Plan":
+        """Create a Plan from a list of PlanBenefit objects.
+
+        Args:
+            benefits: List of PlanBenefit objects for the same plan
+
+        Returns:
+            Plan object with aggregated benefits
+
+        Raises:
+            ValueError: If benefits list is empty or benefits have inconsistent plan metadata
+        """
+        if not benefits:
+            raise ValueError("Cannot create Plan from empty benefits list")
+
+        # Use first benefit to extract plan-level metadata
+        first_benefit = benefits[0]
+        plan_id = first_benefit.plan_id
+        standard_component_id = first_benefit.standard_component_id
+        state_code = first_benefit.state_code
+        issuer_id = first_benefit.issuer_id
+        business_year = first_benefit.business_year
+
+        # Validate all benefits belong to the same plan
+        for benefit in benefits:
+            if benefit.plan_id != plan_id:
+                raise ValueError(
+                    f"All benefits must have the same plan_id. "
+                    f"Found {benefit.plan_id} != {plan_id}",
+                )
+            if benefit.standard_component_id != standard_component_id:
+                raise ValueError(
+                    f"All benefits must have the same standard_component_id. "
+                    f"Found {benefit.standard_component_id} != {standard_component_id}",
+                )
+            if benefit.state_code != state_code:
+                raise ValueError(
+                    f"All benefits must have the same state_code. "
+                    f"Found {benefit.state_code} != {state_code}",
+                )
+            if benefit.issuer_id != issuer_id:
+                raise ValueError(
+                    f"All benefits must have the same issuer_id. "
+                    f"Found {benefit.issuer_id} != {issuer_id}",
+                )
+            if benefit.business_year != business_year:
+                raise ValueError(
+                    f"All benefits must have the same business_year. "
+                    f"Found {benefit.business_year} != {business_year}",
+                )
+
+        # Build benefits dictionary keyed by benefit_name
+        benefits_dict: dict[str, PlanBenefit] = {}
+        for benefit in benefits:
+            benefit_name = benefit.benefit_name
+            if benefit_name in benefits_dict:
+                logger.warning(
+                    f"Duplicate benefit_name '{benefit_name}' for plan {plan_id}. "
+                    f"Keeping first occurrence.",
+                )
+            else:
+                benefits_dict[benefit_name] = benefit
+
+        return cls(
+            plan_id=plan_id,
+            standard_component_id=standard_component_id,
+            benefits=benefits_dict,
+            state_code=state_code,
+            issuer_id=issuer_id,
+            business_year=business_year,
+        )
+
+    def get_benefit(self, benefit_name: str) -> PlanBenefit | None:
+        """Get a benefit by name.
+
+        Args:
+            benefit_name: Name of the benefit to retrieve
+
+        Returns:
+            PlanBenefit if found, None otherwise
+        """
+        return self.benefits.get(benefit_name)
+
+    def has_benefit(self, benefit_name: str) -> bool:
+        """Check if plan has a specific benefit.
+
+        Args:
+            benefit_name: Name of the benefit to check
+
+        Returns:
+            True if benefit exists, False otherwise
+        """
+        return benefit_name in self.benefits
+
+    def get_covered_benefits(self) -> dict[str, PlanBenefit]:
+        """Get all covered benefits.
+
+        Returns:
+            Dictionary of covered benefits keyed by benefit_name
+        """
+        return {
+            name: benefit
+            for name, benefit in self.benefits.items()
+            if benefit.is_covered_bool()
+        }
+
+    def get_ehb_benefits(self) -> dict[str, PlanBenefit]:
+        """Get all Essential Health Benefits.
+
+        Returns:
+            Dictionary of EHB benefits keyed by benefit_name
+        """
+        return {
+            name: benefit
+            for name, benefit in self.benefits.items()
+            if benefit.is_ehb_bool() is True
+        }
+
+    model_config = ConfigDict(frozen=True)  # Make models immutable after creation
