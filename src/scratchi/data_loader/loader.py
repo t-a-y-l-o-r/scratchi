@@ -1,17 +1,16 @@
 """CSV loader for plan benefits data.
 
 Performance Notes:
-- Currently using pandas for CSV reading (~20s for 1.4M rows)
-- Future optimization: Consider migrating to Polars for 5-10x faster CSV reading
+- Using Polars for high-performance CSV reading (5-10x faster than pandas)
 - See docs/polars-migration-plan.md for migration details
-- Current optimizations: itertuples(), pre-computed field mappings, removed row.to_dict()
+- Current optimizations: iter_rows(), pre-computed field mappings, removed row.to_dict()
 """
 
 import logging
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
+import polars as pl
 
 from scratchi.models.constants import CSVColumn
 from scratchi.models.plan import PlanBenefit
@@ -47,20 +46,21 @@ CSV_COLUMN_MAPPING: dict[CSVColumn, str] = {
 }
 
 
-def _build_column_index_mapping(df: pd.DataFrame) -> list[tuple[int, str]]:
+def _build_column_index_mapping(df: pl.DataFrame) -> list[tuple[int, str]]:
     """Build list of (tuple_index, model_field) pairs for efficient row parsing.
 
     Args:
-        df: DataFrame with CSV data
+        df: Polars DataFrame with CSV data
 
     Returns:
         List of (column_index, model_field_name) tuples for columns that exist
     """
     field_mappings: list[tuple[int, str]] = []
+    column_names = df.columns
     for csv_column_enum, model_field in CSV_COLUMN_MAPPING.items():
         csv_column_name = csv_column_enum.value
-        if csv_column_name in df.columns:
-            idx = df.columns.get_loc(csv_column_name)
+        if csv_column_name in column_names:
+            idx = column_names.index(csv_column_name)
             field_mappings.append((idx, model_field))
         else:
             logger.warning(f"Missing column '{csv_column_name}' in CSV file")
@@ -71,10 +71,10 @@ def parse_plan_benefit_from_tuple(
     row_tuple: tuple[Any, ...],
     field_mappings: list[tuple[int, str]],
 ) -> PlanBenefit:
-    """Parse a row tuple from itertuples into a PlanBenefit model.
+    """Parse a row tuple from Polars iter_rows into a PlanBenefit model.
 
     Args:
-        row_tuple: Tuple from df.itertuples() containing row values
+        row_tuple: Tuple from df.iter_rows() containing row values
         field_mappings: Pre-computed list of (tuple_index, model_field) pairs
 
     Returns:
@@ -84,10 +84,12 @@ def parse_plan_benefit_from_tuple(
         ValueError: If required fields are missing or invalid
     """
     # Build mapped_data dict directly from pre-computed index/field pairs
-    # With index=False, tuple elements correspond directly to DataFrame columns in order
+    # Tuple elements correspond directly to DataFrame columns in order
     mapped_data: dict[str, Any] = {}
     for idx, model_field in field_mappings:
-        mapped_data[model_field] = row_tuple[idx]
+        value = row_tuple[idx]
+        # Convert Polars null to empty string for consistency with validators
+        mapped_data[model_field] = "" if value is None else value
 
     try:
         return PlanBenefit(**mapped_data)
@@ -149,16 +151,17 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
     logger.info(f"Loading plan data from {csv_path}")
 
     try:
-        # Read CSV with pandas - handles empty values and special characters
-        df = pd.read_csv(
+        # Read CSV with Polars - handles empty values and special characters
+        # Polars reads all columns as strings by default, nulls are handled as None
+        df = pl.read_csv(
             path,
-            dtype=str,  # Keep everything as string initially for validation
-            keep_default_na=False,  # Don't convert empty strings to NaN
-            na_values=[""],  # Treat empty strings as NaN for pandas
+            infer_schema_length=0,  # Read all columns as strings initially
+            null_values=[""],  # Treat empty strings as null
         )
 
-        # Replace NaN with empty strings for our validators
-        df = df.fillna("")
+        # Check for empty DataFrame
+        if df.height == 0:
+            raise ValueError(f"CSV file is empty: {csv_path}")
 
         logger.info(f"Loaded {len(df)} rows from CSV")
 
@@ -169,9 +172,8 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
         benefits: list[PlanBenefit] = []
         errors: list[tuple[int, str]] = []
 
-        # Use itertuples() instead of iterrows() for 10-100x performance improvement
-        # index=False means we don't include the DataFrame index in the tuple
-        for row_num, row_tuple in enumerate(df.itertuples(index=False, name=None), start=1):
+        # Use iter_rows() for efficient iteration - returns tuples
+        for row_num, row_tuple in enumerate(df.iter_rows(named=False), start=1):
             try:
                 benefit = parse_plan_benefit_from_tuple(row_tuple, field_mappings)
                 benefits.append(benefit)
@@ -199,9 +201,9 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
         logger.info(f"Successfully parsed {len(benefits)} plan benefits")
         return benefits
 
-    except pd.errors.EmptyDataError as error:
+    except pl.exceptions.NoDataError as error:
         raise ValueError(f"CSV file is empty: {csv_path}") from error
-    except pd.errors.ParserError as error:
+    except pl.exceptions.ComputeError as error:
         raise ValueError(f"Failed to parse CSV file: {csv_path}") from error
     except Exception as error:
         logger.error(f"Unexpected error loading CSV: {error}")
