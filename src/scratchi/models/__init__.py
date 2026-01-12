@@ -11,6 +11,15 @@ from scratchi.models.constants import (
     YesNoStatus,
 )
 from scratchi.models.plan import Plan, PlanBenefit
+from scratchi.models.recommendation import (
+    CostAnalysis,
+    CoverageAnalysis,
+    ExclusionAnalysis,
+    LimitAnalysis,
+    Recommendation,
+    ReasoningChain,
+    TradeOff,
+)
 from scratchi.models.user import (
     BudgetConstraints,
     CostSharingPreference,
@@ -27,6 +36,13 @@ __all__ = [
     "ExpectedUsage",
     "CostSharingPreference",
     "BudgetConstraints",
+    "Recommendation",
+    "ReasoningChain",
+    "CoverageAnalysis",
+    "CostAnalysis",
+    "LimitAnalysis",
+    "ExclusionAnalysis",
+    "TradeOff",
     "CoverageStatus",
     "YesNoStatus",
     "EHBStatus",
