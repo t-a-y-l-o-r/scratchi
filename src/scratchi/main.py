@@ -3,8 +3,11 @@
 import logging
 import sys
 
+import polars as pl
+
 from scratchi.config import settings
-from scratchi.data_loader import load_plans_from_csv
+from scratchi.data_loader import convert_dataframe_rows_to_benefits, load_plans_dataframe
+from scratchi.models.constants import CSVColumn
 
 logger = logging.getLogger(__name__)
 
@@ -37,27 +40,35 @@ def main() -> int:
 
     try:
         logger.info(f"Loading plan data from {csv_path}")
-        benefits = load_plans_from_csv(csv_path)
+        # Load data as DataFrame (lazy - no model conversion yet)
+        df = load_plans_dataframe(csv_path)
 
-        logger.info(f"Successfully loaded {len(benefits)} plan benefits")
+        logger.info(f"Successfully loaded {df.height} rows from CSV")
         logger.info("")
 
-        # Display statistics
-        unique_plans = {benefit.plan_id for benefit in benefits}
-        unique_benefits = {benefit.benefit_name for benefit in benefits}
-        unique_states = {benefit.state_code for benefit in benefits}
+        # Compute statistics directly on DataFrame (very fast)
+        total_rows = df.height
+        unique_plans_count = df.select(pl.col(CSVColumn.PLAN_ID.value).n_unique()).item()
+        unique_benefits_count = df.select(pl.col(CSVColumn.BENEFIT_NAME.value).n_unique()).item()
+        unique_states = (
+            df.select(pl.col(CSVColumn.STATE_CODE.value).unique().sort())
+            .get_column(CSVColumn.STATE_CODE.value)
+            .to_list()
+        )
 
         logger.info("Summary Statistics:")
-        logger.info(f"  Total plan benefits: {len(benefits)}")
-        logger.info(f"  Unique plans: {len(unique_plans)}")
-        logger.info(f"  Unique benefit types: {len(unique_benefits)}")
-        logger.info(f"  States: {', '.join(sorted(unique_states))}")
+        logger.info(f"  Total plan benefits: {total_rows}")
+        logger.info(f"  Unique plans: {unique_plans_count}")
+        logger.info(f"  Unique benefit types: {unique_benefits_count}")
+        logger.info(f"  States: {', '.join(unique_states)}")
         logger.info("")
 
-        # Display sample data
+        # Only convert the sample rows to models (lazy conversion)
         sample_count = settings.sample_display_count
+        sample_benefits = convert_dataframe_rows_to_benefits(df, n_rows=sample_count)
+
         logger.info(f"Sample Benefits (first {sample_count}):")
-        for i, benefit in enumerate(benefits[:sample_count], 1):
+        for i, benefit in enumerate(sample_benefits, 1):
             logger.info(f"  {i}. {benefit.benefit_name}")
             logger.info(f"     Plan: {benefit.plan_id}")
             logger.info(f"     State: {benefit.state_code}")

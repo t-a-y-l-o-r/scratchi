@@ -131,6 +131,90 @@ def parse_plan_benefit_row(row: dict[str, Any]) -> PlanBenefit:
         raise ValueError(f"Invalid row data: {error}") from error
 
 
+def load_plans_dataframe(csv_path: str | Path) -> pl.DataFrame:
+    """Load plan benefits from CSV file as a Polars DataFrame (lazy loading).
+    
+    This function loads the CSV without converting rows to Pydantic models,
+    enabling efficient operations on the DataFrame. Convert rows to models
+    only when needed using convert_row_to_plan_benefit().
+    
+    Args:
+        csv_path: Path to CSV file
+        
+    Returns:
+        Polars DataFrame with plan benefits data
+        
+    Raises:
+        FileNotFoundError: If CSV file doesn't exist
+        ValueError: If CSV parsing fails or file is empty
+    """
+    path = Path(csv_path)
+    if not path.exists():
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
+    
+    logger.info(f"Loading plan data from {csv_path}")
+    
+    try:
+        # Read CSV with Polars - handles empty values and special characters
+        # Polars reads all columns as strings by default, nulls are handled as None
+        df = pl.read_csv(
+            path,
+            infer_schema_length=0,  # Read all columns as strings initially
+            null_values=[""],  # Treat empty strings as null
+        )
+        
+        # Check for empty DataFrame
+        if df.height == 0:
+            raise ValueError(f"CSV file is empty: {csv_path}")
+        
+        logger.info(f"Loaded {df.height} rows from CSV")
+        return df
+        
+    except pl.exceptions.NoDataError as error:
+        raise ValueError(f"CSV file is empty: {csv_path}") from error
+    except pl.exceptions.ComputeError as error:
+        raise ValueError(f"Failed to parse CSV file: {csv_path}") from error
+    except Exception as error:
+        logger.error(f"Unexpected error loading CSV: {error}")
+        raise
+
+
+def convert_dataframe_rows_to_benefits(
+    df: pl.DataFrame,
+    n_rows: int | None = None,
+) -> list[PlanBenefit]:
+    """Convert DataFrame rows to PlanBenefit models.
+    
+    Args:
+        df: Polars DataFrame with plan benefits data
+        n_rows: Optional number of rows to convert (from the start). If None, converts all rows.
+    
+    Returns:
+        List of PlanBenefit models
+        
+    Raises:
+        ValueError: If required fields are missing or invalid
+    """
+    if n_rows is None:
+        rows_to_convert = df
+    else:
+        rows_to_convert = df.head(n_rows)
+    
+    # Pre-compute field mappings for efficient conversion
+    field_mappings = _build_column_index_mapping(rows_to_convert)
+    
+    benefits: list[PlanBenefit] = []
+    for row_tuple in rows_to_convert.iter_rows(named=False):
+        try:
+            benefit = parse_plan_benefit_from_tuple(row_tuple, field_mappings)
+            benefits.append(benefit)
+        except Exception as error:
+            logger.warning(f"Failed to parse row: {error}")
+            # Continue processing other rows
+    
+    return benefits
+
+
 def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
     """Load plan benefits from CSV file.
 
