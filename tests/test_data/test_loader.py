@@ -22,7 +22,7 @@ from scratchi.models.constants import (
     NOT_APPLICABLE,
     YesNoStatus,
 )
-from scratchi.models.plan import PlanBenefit
+from scratchi.models.plan import PlanBenefit, normalize_benefit_name
 
 # Constants for test data
 CSV_HEADER_ROW = [
@@ -426,12 +426,13 @@ class TestPlanAggregation:
 
             plan_001 = next(p for p in plans if p.plan_id == "PLAN-001")
             assert len(plan_001.benefits) == 2
-            assert "Basic Dental Care - Adult" in plan_001.benefits
-            assert "Basic Dental Care - Child" in plan_001.benefits
+            # Benefits dictionary uses normalized keys
+            assert normalize_benefit_name("Basic Dental Care - Adult") in plan_001.benefits
+            assert normalize_benefit_name("Basic Dental Care - Child") in plan_001.benefits
 
             plan_002 = next(p for p in plans if p.plan_id == "PLAN-002")
             assert len(plan_002.benefits) == 1
-            assert "Orthodontia - Child" in plan_002.benefits
+            assert normalize_benefit_name("Orthodontia - Child") in plan_002.benefits
         finally:
             csv_path.unlink()
 

@@ -6,7 +6,7 @@ import pytest
 
 from scratchi.data_loader import aggregate_plans_from_benefits, create_plan_index
 from scratchi.models.constants import CoverageStatus, EHBStatus, YesNoStatus
-from scratchi.models.plan import Plan, PlanBenefit
+from scratchi.models.plan import Plan, PlanBenefit, normalize_benefit_name
 
 
 def create_test_benefit(
@@ -51,9 +51,10 @@ class TestPlan:
         assert plan.issuer_id == "21989"
         assert plan.business_year == 2026
         assert len(plan.benefits) == 3
-        assert "Basic Dental Care - Adult" in plan.benefits
-        assert "Basic Dental Care - Child" in plan.benefits
-        assert "Orthodontia - Child" in plan.benefits
+        # Benefits dictionary uses normalized keys
+        assert normalize_benefit_name("Basic Dental Care - Adult") in plan.benefits
+        assert normalize_benefit_name("Basic Dental Care - Child") in plan.benefits
+        assert normalize_benefit_name("Orthodontia - Child") in plan.benefits
 
     def test_create_plan_from_empty_list(self) -> None:
         """Test creating a Plan from empty list raises ValueError."""
@@ -87,7 +88,8 @@ class TestPlan:
         plan = Plan.from_benefits(benefits)
         # Should keep first occurrence
         assert len(plan.benefits) == 1
-        assert "Basic Dental Care - Adult" in plan.benefits
+        # Benefits dictionary uses normalized keys
+        assert normalize_benefit_name("Basic Dental Care - Adult") in plan.benefits
 
     def test_benefit_lookup_methods(self) -> None:
         """Test getting and checking benefits by name."""
@@ -127,9 +129,10 @@ class TestPlan:
 
         covered = plan.get_covered_benefits()
         assert len(covered) == 2
-        assert "Covered Benefit" in covered
-        assert "Another Covered Benefit" in covered
-        assert "Not Covered Benefit" not in covered
+        # get_covered_benefits() returns dict with normalized keys
+        assert normalize_benefit_name("Covered Benefit") in covered
+        assert normalize_benefit_name("Another Covered Benefit") in covered
+        assert normalize_benefit_name("Not Covered Benefit") not in covered
 
     def test_get_ehb_benefits(self) -> None:
         """Test getting all EHB benefits."""
@@ -151,9 +154,10 @@ class TestPlan:
 
         ehb_benefits = plan.get_ehb_benefits()
         assert len(ehb_benefits) == 1
-        assert "EHB Benefit" in ehb_benefits
-        assert "Not EHB Benefit" not in ehb_benefits
-        assert "Unknown EHB Benefit" not in ehb_benefits
+        # get_ehb_benefits() returns dict with normalized keys
+        assert normalize_benefit_name("EHB Benefit") in ehb_benefits
+        assert normalize_benefit_name("Not EHB Benefit") not in ehb_benefits
+        assert normalize_benefit_name("Unknown EHB Benefit") not in ehb_benefits
 
 
 
@@ -255,7 +259,8 @@ class TestCreatePlanIndex:
         plan = index.get("PLAN-001")
         assert plan is not None
         assert plan.plan_id == "PLAN-001"
-        assert "Benefit 1" in plan.benefits
+        # Benefits dictionary uses normalized keys
+        assert normalize_benefit_name("Benefit 1") in plan.benefits
 
         plan_none = index.get("NON-EXISTENT")
         assert plan_none is None

@@ -1,6 +1,7 @@
 """Plan data models for parsing insurance plan benefits."""
 
 import logging
+import re
 from datetime import date
 from typing import Any
 
@@ -17,6 +18,39 @@ from scratchi.models.constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_benefit_name(benefit_name: str) -> str:
+    """Normalize a benefit name for consistent matching.
+
+    This function normalizes benefit names to handle:
+    - Case variations (converts to lowercase)
+    - Whitespace variations (strips and collapses multiple spaces)
+    - Preserves structure (hyphens, special characters)
+
+    Args:
+        benefit_name: The benefit name to normalize
+
+    Returns:
+        Normalized benefit name (lowercase, whitespace normalized)
+
+    Examples:
+        >>> normalize_benefit_name("Basic Dental Care - Adult")
+        'basic dental care - adult'
+        >>> normalize_benefit_name("Basic  Dental  Care - Adult ")
+        'basic dental care - adult'
+        >>> normalize_benefit_name("BASIC DENTAL CARE - ADULT")
+        'basic dental care - adult'
+    """
+    if not benefit_name:
+        return ""
+    # Convert to lowercase
+    normalized = benefit_name.lower()
+    # Normalize whitespace: strip and collapse multiple spaces/tabs/newlines to single space
+    normalized = re.sub(r"\s+", " ", normalized)
+    # Strip leading/trailing whitespace
+    normalized = normalized.strip()
+    return normalized
 
 
 class PlanBenefit(BaseModel):
@@ -269,7 +303,17 @@ class Plan(BaseModel):
     """Model representing an aggregated insurance plan with all its benefits.
 
     This model groups multiple PlanBenefit objects by plan_id into a single
-    plan object with a dictionary of benefits keyed by benefit_name.
+    plan object with a dictionary of benefits keyed by normalized benefit_name.
+
+    **Benefit Name Matching:**
+    Benefit names are normalized for matching (case-insensitive, whitespace-normalized).
+    This means:
+    - "Basic Dental Care - Adult" matches "basic dental care - adult"
+    - "Basic  Dental  Care - Adult" matches "Basic Dental Care - Adult"
+    - Partial matches are NOT supported - "Basic Dental Care" does NOT match "Basic Dental Care - Adult"
+
+    The original benefit names are preserved in the PlanBenefit objects, but lookups
+    use normalized keys for consistency.
     """
 
     plan_id: str = Field(..., description="Unique plan identifier")
@@ -334,17 +378,24 @@ class Plan(BaseModel):
                     f"Found {benefit.business_year} != {business_year}",
                 )
 
-        # Build benefits dictionary keyed by benefit_name
+        # Build benefits dictionary keyed by normalized benefit_name
+        # This allows case-insensitive and whitespace-normalized lookups
         benefits_dict: dict[str, PlanBenefit] = {}
+        original_names: dict[str, str] = {}  # Map normalized -> original for logging
         for benefit in benefits:
             benefit_name = benefit.benefit_name
-            if benefit_name in benefits_dict:
+            normalized_name = normalize_benefit_name(benefit_name)
+            
+            if normalized_name in benefits_dict:
                 logger.warning(
-                    f"Duplicate benefit_name '{benefit_name}' for plan {plan_id}. "
-                    f"Keeping first occurrence.",
+                    f"Duplicate benefit_name (after normalization) '{benefit_name}' "
+                    f"(normalized: '{normalized_name}') for plan {plan_id}. "
+                    f"Original: '{original_names[normalized_name]}', "
+                    f"Duplicate: '{benefit_name}'. Keeping first occurrence.",
                 )
             else:
-                benefits_dict[benefit_name] = benefit
+                benefits_dict[normalized_name] = benefit
+                original_names[normalized_name] = benefit_name
 
         return cls(
             plan_id=plan_id,
@@ -356,26 +407,41 @@ class Plan(BaseModel):
         )
 
     def get_benefit(self, benefit_name: str) -> PlanBenefit | None:
-        """Get a benefit by name.
+        """Get a benefit by name using normalized matching.
+
+        This method performs case-insensitive and whitespace-normalized matching
+        to handle variations in benefit names. For example:
+        - "Basic Dental Care - Adult" matches "basic dental care - adult"
+        - "Basic Dental Care - Adult" matches "Basic  Dental  Care - Adult "
 
         Args:
-            benefit_name: Name of the benefit to retrieve
+            benefit_name: Name of the benefit to retrieve (will be normalized)
 
         Returns:
             PlanBenefit if found, None otherwise
+
+        Examples:
+            >>> plan.get_benefit("Basic Dental Care - Adult")
+            <PlanBenefit ...>
+            >>> plan.get_benefit("basic dental care - adult")
+            <PlanBenefit ...>
+            >>> plan.get_benefit("Basic  Dental  Care - Adult ")
+            <PlanBenefit ...>
         """
-        return self.benefits.get(benefit_name)
+        normalized_name = normalize_benefit_name(benefit_name)
+        return self.benefits.get(normalized_name)
 
     def has_benefit(self, benefit_name: str) -> bool:
-        """Check if plan has a specific benefit.
+        """Check if plan has a specific benefit using normalized matching.
 
         Args:
-            benefit_name: Name of the benefit to check
+            benefit_name: Name of the benefit to check (will be normalized)
 
         Returns:
             True if benefit exists, False otherwise
         """
-        return benefit_name in self.benefits
+        normalized_name = normalize_benefit_name(benefit_name)
+        return normalized_name in self.benefits
 
     def get_covered_benefits(self) -> dict[str, PlanBenefit]:
         """Get all covered benefits.
