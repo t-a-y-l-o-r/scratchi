@@ -23,7 +23,7 @@ dev = [
 ]
 
 [project.scripts]
-main = "scratchi.main:main"
+main = "scratchi.cli.main:main"
 
 [tool.uv]
 package = true

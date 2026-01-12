@@ -7,6 +7,7 @@ from scratchi.models.plan import Plan
 from scratchi.models.recommendation import Recommendation
 from scratchi.models.user import UserProfile
 from scratchi.reasoning.builder import ReasoningBuilder
+from scratchi.reasoning.templates import ExplanationStyle
 from scratchi.scoring.orchestrator import ScoringOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class RecommendationEngine:
         plans: list[Plan],
         user_profile: UserProfile,
         top_n: int | None = None,
+        explanation_style: str = ExplanationStyle.DETAILED,
     ) -> list[Recommendation]:
         """Generate ranked recommendations for a user profile.
 
@@ -35,6 +37,7 @@ class RecommendationEngine:
             plans: List of plans to evaluate
             user_profile: User profile with preferences and requirements
             top_n: Optional limit on number of recommendations (None = all)
+            explanation_style: Explanation style (detailed or concise)
 
         Returns:
             List of Recommendation objects, sorted by overall_score (descending)
@@ -50,7 +53,11 @@ class RecommendationEngine:
             scores = self.orchestrator.score_plan(plan, user_profile)
 
             # Build reasoning chain
-            reasoning_chain = self.builder.build_reasoning_chain(plan, user_profile)
+            reasoning_chain = self.builder.build_reasoning_chain(
+                plan,
+                user_profile,
+                style=explanation_style,
+            )
 
             # Create recommendation
             recommendation = Recommendation(
@@ -106,6 +113,7 @@ class RecommendationEngine:
         plans: list[Plan],
         user_profile: UserProfile,
         top_n: int | None = None,
+        explanation_style: str = ExplanationStyle.DETAILED,
     ) -> list[dict[str, Any]]:
         """Generate recommendations with full plan objects included.
 
@@ -117,7 +125,7 @@ class RecommendationEngine:
         Returns:
             List of dictionaries with plan, recommendation, and scores
         """
-        recommendations = self.recommend(plans, user_profile, top_n)
+        recommendations = self.recommend(plans, user_profile, top_n, explanation_style)
 
         # Create plan lookup
         plan_dict = {plan.plan_id: plan for plan in plans}
