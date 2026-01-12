@@ -133,8 +133,10 @@ def format_recommendations_text(
                 lines.append(f"    Con: {trade_off.con}")
             lines.append("")
 
-        lines.append("-" * 60)
-        lines.append("")
+        # Only add separator if not the last recommendation
+        if rec != recommendations[-1]:
+            lines.append("-" * 60)
+            lines.append("")
 
     return "\n".join(lines)
 

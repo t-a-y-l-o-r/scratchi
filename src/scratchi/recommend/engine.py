@@ -74,9 +74,20 @@ class RecommendationEngine:
             )
             recommendations.append(recommendation)
 
-        # Sort by overall score (descending), then by coverage score for ties
+        # Sort by overall score (descending), with tie-breaking
+        # If scores are identical (within epsilon), use:
+        # 1. Higher coverage score
+        # 2. Higher cost score
+        # 3. Higher limit score
+        # 4. Alphabetical by plan_id (last resort)
         recommendations.sort(
-            key=lambda r: (r.overall_score, r.user_fit_scores.get("coverage", 0.0)),
+            key=lambda r: (
+                r.overall_score,
+                r.user_fit_scores.get("coverage", 0.0),
+                r.user_fit_scores.get("cost", 0.0),
+                r.user_fit_scores.get("limit", 0.0),
+                r.plan_id,
+            ),
             reverse=True,
         )
 

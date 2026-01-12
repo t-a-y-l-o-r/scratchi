@@ -223,7 +223,7 @@ class ReasoningBuilder:
         """
         benefits_with_quantity_limits = 0
         benefits_with_time_limits = 0
-        restrictive_limits: list[str] = []
+        restrictive_limits: set[str] = set()
         total_covered = 0
 
         for benefit in plan.benefits.values():
@@ -236,7 +236,7 @@ class ReasoningBuilder:
                 benefits_with_quantity_limits += 1
                 # Consider limits restrictive if quantity is low
                 if benefit.limit_qty is not None and benefit.limit_qty <= 2:
-                    restrictive_limits.append(benefit.benefit_name)
+                    restrictive_limits.add(benefit.benefit_name)
 
             if benefit.limit_unit:
                 unit_lower = benefit.limit_unit.lower()
@@ -246,13 +246,13 @@ class ReasoningBuilder:
                 ):
                     benefits_with_time_limits += 1
                     if benefit.limit_qty is not None and benefit.limit_qty <= 2:
-                        restrictive_limits.append(benefit.benefit_name)
+                        restrictive_limits.add(benefit.benefit_name)
 
         return LimitAnalysis(
             benefits_with_quantity_limits=benefits_with_quantity_limits,
             benefits_with_time_limits=benefits_with_time_limits,
             total_covered_benefits=total_covered,
-            restrictive_limits=restrictive_limits,
+            restrictive_limits=sorted(list(restrictive_limits)),
         )
 
     def _analyze_exclusions(self, plan: Plan) -> ExclusionAnalysis:
@@ -423,9 +423,21 @@ class ReasoningBuilder:
             )
 
         if limit_analysis.restrictive_limits:
-            weaknesses.append(
-                f"Restrictive limits on {len(limit_analysis.restrictive_limits)} benefit(s)",
-            )
+            limit_count = len(limit_analysis.restrictive_limits)
+            if limit_count == 1:
+                weaknesses.append(
+                    f"Restrictive limits on: {limit_analysis.restrictive_limits[0]}",
+                )
+            elif limit_count <= 3:
+                weaknesses.append(
+                    f"Restrictive limits on: {', '.join(limit_analysis.restrictive_limits)}",
+                )
+            else:
+                weaknesses.append(
+                    f"Restrictive limits on {limit_count} benefits: "
+                    f"{', '.join(limit_analysis.restrictive_limits[:2])}, "
+                    f"and {limit_count - 2} more",
+                )
 
         if cost_analysis.annual_maximum is not None and cost_analysis.annual_maximum < 1000:
             weaknesses.append(f"Low annual maximum (${cost_analysis.annual_maximum:,.0f})")

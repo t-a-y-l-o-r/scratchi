@@ -138,9 +138,16 @@ def main() -> int:
 
         # Write output
         if args.output:
-            args.output.write_text(output, encoding="utf-8")
-            if not args.quiet:
-                logger.info(f"Output written to {args.output}")
+            try:
+                output_path = args.output.expanduser()
+                # Create parent directories if they don't exist
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(output, encoding="utf-8")
+                if not args.quiet:
+                    logger.info(f"Output written to {output_path}")
+            except OSError as error:
+                logger.error(f"Failed to write output file: {error}")
+                return 1
         else:
             print(output)
 
