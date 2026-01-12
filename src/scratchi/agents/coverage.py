@@ -51,7 +51,14 @@ class CoverageAgent:
         )
 
         # Ensure score is in [0, 1] range
-        return max(0.0, min(1.0, coverage_score))
+        original_score = coverage_score
+        clamped_score = max(0.0, min(1.0, coverage_score))
+        if original_score != clamped_score:
+            logger.warning(
+                f"CoverageAgent score clamped from {original_score:.4f} to {clamped_score:.4f} "
+                f"for plan {plan.plan_id} (indicates potential algorithm issue)",
+            )
+        return clamped_score
 
     def _calculate_required_benefits_ratio(
         self,

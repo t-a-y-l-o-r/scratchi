@@ -52,7 +52,14 @@ class CostAgent:
         )
 
         # Ensure score is in [0, 1] range
-        return max(0.0, min(1.0, cost_score))
+        original_score = cost_score
+        clamped_score = max(0.0, min(1.0, cost_score))
+        if original_score != clamped_score:
+            logger.warning(
+                f"CostAgent score clamped from {original_score:.4f} to {clamped_score:.4f} "
+                f"for plan {plan.plan_id} (indicates potential algorithm issue)",
+            )
+        return clamped_score
 
     def _calculate_copay_preference_alignment(
         self,

@@ -64,7 +64,13 @@ class ScoringOrchestrator:
         overall_score *= exclusion_modifier
 
         # Ensure overall score is in [0, 1] range
+        original_overall = overall_score
         overall_score = max(0.0, min(1.0, overall_score))
+        if original_overall != overall_score:
+            logger.warning(
+                f"Overall score clamped from {original_overall:.4f} to {overall_score:.4f} "
+                f"for plan {plan.plan_id} (indicates potential algorithm issue)",
+            )
 
         logger.debug(
             f"Plan {plan.plan_id} scores: "

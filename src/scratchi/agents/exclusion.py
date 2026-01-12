@@ -37,7 +37,15 @@ class ExclusionAgent:
         # Combined score (weighted)
         exclusion_score = complexity_score * 0.7 + prior_coverage_penalty * 0.3
 
-        return max(0.0, min(1.0, exclusion_score))
+        # Ensure score is in [0, 1] range
+        original_score = exclusion_score
+        clamped_score = max(0.0, min(1.0, exclusion_score))
+        if original_score != clamped_score:
+            logger.warning(
+                f"ExclusionAgent score clamped from {original_score:.4f} to {clamped_score:.4f} "
+                f"for plan {plan.plan_id} (indicates potential algorithm issue)",
+            )
+        return clamped_score
 
     def _calculate_exclusion_complexity_score(self, plan: Plan) -> float:
         """Calculate score based on exclusion complexity.

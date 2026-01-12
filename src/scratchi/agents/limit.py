@@ -47,7 +47,14 @@ class LimitAgent:
         )
 
         # Ensure score is in [0, 1] range
-        return max(0.0, min(1.0, limit_score))
+        original_score = limit_score
+        clamped_score = max(0.0, min(1.0, limit_score))
+        if original_score != clamped_score:
+            logger.warning(
+                f"LimitAgent score clamped from {original_score:.4f} to {clamped_score:.4f} "
+                f"for plan {plan.plan_id} (indicates potential algorithm issue)",
+            )
+        return clamped_score
 
     def _calculate_quantity_limit_score(
         self,
