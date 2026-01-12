@@ -180,9 +180,25 @@ class CostAgent:
                     for match in matches:
                         try:
                             amount = float(match.replace(",", ""))
-                            if amount > 0:
-                                max_amounts.append(amount)
+                            # Validate amount is reasonable: > 0 and < $1,000,000
+                            if amount <= 0:
+                                logger.warning(
+                                    f"Invalid annual maximum amount (<= 0): ${amount:,.0f} "
+                                    f"in plan {plan.plan_id}, benefit {benefit.benefit_name}",
+                                )
+                                continue
+                            if amount >= 1_000_000:
+                                logger.warning(
+                                    f"Unusually large annual maximum amount: ${amount:,.0f} "
+                                    f"in plan {plan.plan_id}, benefit {benefit.benefit_name}",
+                                )
+                                # Still use it, but log the warning
+                            max_amounts.append(amount)
                         except ValueError:
+                            logger.warning(
+                                f"Could not parse annual maximum amount: {match} "
+                                f"in plan {plan.plan_id}, benefit {benefit.benefit_name}",
+                            )
                             continue
 
         if not max_amounts:
