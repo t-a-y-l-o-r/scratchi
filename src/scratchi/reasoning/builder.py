@@ -368,20 +368,42 @@ class ReasoningBuilder:
                 coverage_analysis.required_benefits_covered
                 == coverage_analysis.required_benefits_total
             ):
-                strengths.append(
-                    f"Covers all {coverage_analysis.required_benefits_total} required benefits",
-                )
+                if coverage_analysis.required_benefits_total == 1:
+                    strengths.append(
+                        f"Covers your required benefit: {coverage_analysis.covered_benefits[0]}",
+                    )
+                else:
+                    strengths.append(
+                        f"Covers all {coverage_analysis.required_benefits_total} of your required benefits",
+                    )
 
         if cost_analysis.annual_maximum is not None:
-            strengths.append(f"Annual maximum: ${cost_analysis.annual_maximum:,.0f}")
+            if cost_analysis.annual_maximum >= 5000:
+                strengths.append(
+                    f"Annual maximum benefit of ${cost_analysis.annual_maximum:,.0f} provides substantial coverage",
+                )
+            else:
+                strengths.append(
+                    f"Annual maximum benefit: ${cost_analysis.annual_maximum:,.0f}",
+                )
 
         if cost_analysis.copay_available and user_profile.preferred_cost_sharing.value == "Copay":
-            strengths.append("Uses copay-based cost-sharing (matches preference)")
+            strengths.append(
+                "Uses copay-based cost-sharing, which matches your preference for predictable costs",
+            )
+        elif cost_analysis.cost_sharing_method == "copay":
+            strengths.append("Uses copay-based cost-sharing for predictable out-of-pocket costs")
 
         if coverage_analysis.ehb_benefits_count > 0:
-            strengths.append(
-                f"Includes {coverage_analysis.ehb_benefits_count} Essential Health Benefits",
-            )
+            ehb_ratio = coverage_analysis.ehb_benefits_count / max(coverage_analysis.total_benefits_count, 1)
+            if ehb_ratio >= 0.5:
+                strengths.append(
+                    f"Comprehensive Essential Health Benefits coverage ({coverage_analysis.ehb_benefits_count} EHB benefits)",
+                )
+            else:
+                strengths.append(
+                    f"Includes {coverage_analysis.ehb_benefits_count} Essential Health Benefits",
+                )
 
         return strengths
 
@@ -418,9 +440,15 @@ class ReasoningBuilder:
             cost_analysis.avg_coinsurance_rate is not None
             and cost_analysis.avg_coinsurance_rate > 40
         ):
-            weaknesses.append(
-                f"High coinsurance rate ({cost_analysis.avg_coinsurance_rate:.0f}%)",
-            )
+            if cost_analysis.avg_coinsurance_rate > 50:
+                weaknesses.append(
+                    f"Very high coinsurance rate ({cost_analysis.avg_coinsurance_rate:.0f}%) "
+                    "may result in significant out-of-pocket costs",
+                )
+            else:
+                weaknesses.append(
+                    f"Higher than average coinsurance rate ({cost_analysis.avg_coinsurance_rate:.0f}%)",
+                )
 
         if limit_analysis.restrictive_limits:
             limit_count = len(limit_analysis.restrictive_limits)
