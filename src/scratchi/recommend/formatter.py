@@ -237,6 +237,44 @@ def format_recommendations_text(
             lines.append("-" * 60)
             lines.append("")
 
+    # Add summary and next steps
+    lines.append("=" * 60)
+    lines.append("SUMMARY & NEXT STEPS")
+    lines.append("=" * 60)
+    lines.append("")
+    lines.append(f"Top Recommendation: {recommendations[0].plan_id} (Score: {recommendations[0].overall_score:.2%})")
+    lines.append("")
+    lines.append("Recommended Actions:")
+    lines.append("  1. Review the top recommendation(s) above in detail")
+    if len(recommendations) > 1:
+        lines.append(f"  2. Compare the top {min(3, len(recommendations))} plans side-by-side")
+        lines.append("     - Create a comparison table focusing on:")
+        lines.append("       • Coverage for your required benefits")
+        lines.append("       • Cost-sharing structure (copays vs coinsurance)")
+        lines.append("       • Annual maximums and out-of-pocket limits")
+        lines.append("       • Restrictions and limits on key benefits")
+    else:
+        lines.append("  2. Review coverage details and cost-sharing structure")
+    lines.append("  3. Verify plan availability in your area")
+    lines.append("  4. Contact the insurance provider for:")
+    lines.append("     • Current premium rates (monthly cost)")
+    lines.append("     • Deductible amounts")
+    lines.append("     • Out-of-pocket maximums")
+    lines.append("     • Network provider directory")
+    lines.append("     • Specific coverage questions")
+    lines.append("  5. Estimate your total annual costs:")
+    lines.append("     • Add monthly premiums × 12")
+    lines.append("     • Consider deductible amount")
+    lines.append("     • Estimate cost-sharing based on expected usage:")
+    if recommendations[0].reasoning_chain.cost_analysis.cost_sharing_method == "copay":
+        lines.append("       - This plan uses copays (predictable per-visit costs)")
+    elif recommendations[0].reasoning_chain.cost_analysis.avg_coinsurance_rate is not None:
+        rate = recommendations[0].reasoning_chain.cost_analysis.avg_coinsurance_rate
+        lines.append(f"       - Coinsurance rate: {rate:.0f}% (you pay this % after deductible)")
+    lines.append("     • Factor in annual maximum benefit limits")
+    lines.append("  6. Consider your expected healthcare usage when making final decision")
+    lines.append("")
+
     return "\n".join(lines)
 
 
@@ -306,5 +344,42 @@ def format_recommendations_markdown(
 
         lines.append("---")
         lines.append("")
+
+    # Add summary and next steps
+    lines.append("## Summary & Next Steps")
+    lines.append("")
+    lines.append(f"**Top Recommendation:** {recommendations[0].plan_id} (Score: {recommendations[0].overall_score:.2%})")
+    lines.append("")
+    lines.append("### Recommended Actions")
+    lines.append("")
+    lines.append("1. Review the top recommendation(s) above in detail")
+    if len(recommendations) > 1:
+        lines.append(f"2. Compare the top {min(3, len(recommendations))} plans side-by-side")
+        lines.append("   - Create a comparison table focusing on:")
+        lines.append("     - Coverage for your required benefits")
+        lines.append("     - Cost-sharing structure (copays vs coinsurance)")
+        lines.append("     - Annual maximums and out-of-pocket limits")
+        lines.append("     - Restrictions and limits on key benefits")
+    else:
+        lines.append("2. Review coverage details and cost-sharing structure")
+    lines.append("3. Verify plan availability in your area")
+    lines.append("4. Contact the insurance provider for:")
+    lines.append("   - Current premium rates (monthly cost)")
+    lines.append("   - Deductible amounts")
+    lines.append("   - Out-of-pocket maximums")
+    lines.append("   - Network provider directory")
+    lines.append("   - Specific coverage questions")
+    lines.append("5. Estimate your total annual costs:")
+    lines.append("   - Add monthly premiums × 12")
+    lines.append("   - Consider deductible amount")
+    lines.append("   - Estimate cost-sharing based on expected usage:")
+    if recommendations[0].reasoning_chain.cost_analysis.cost_sharing_method == "copay":
+        lines.append("     - This plan uses copays (predictable per-visit costs)")
+    elif recommendations[0].reasoning_chain.cost_analysis.avg_coinsurance_rate is not None:
+        rate = recommendations[0].reasoning_chain.cost_analysis.avg_coinsurance_rate
+        lines.append(f"     - Coinsurance rate: {rate:.0f}% (you pay this % after deductible)")
+    lines.append("   - Factor in annual maximum benefit limits")
+    lines.append("6. Consider your expected healthcare usage when making final decision")
+    lines.append("")
 
     return "\n".join(lines)

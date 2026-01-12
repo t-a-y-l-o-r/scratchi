@@ -112,7 +112,8 @@ def format_cost_explanation(
         )
 
     if analysis.annual_maximum is not None:
-        parts.append(f"The annual maximum benefit is ${analysis.annual_maximum:,.0f}.")
+        parts.append(f"The annual maximum benefit is ${analysis.annual_maximum:,.0f}. "
+                     f"This is the maximum amount the plan will pay per year for covered services.")
 
     if analysis.out_of_network_rate is not None:
         if analysis.avg_coinsurance_rate is not None:
@@ -120,7 +121,8 @@ def format_cost_explanation(
             if oon_diff > 10:
                 parts.append(
                     f"Out-of-network services have significantly higher coinsurance "
-                    f"({analysis.out_of_network_rate:.0f}% vs {analysis.avg_coinsurance_rate:.0f}% in-network).",
+                    f"({analysis.out_of_network_rate:.0f}% vs {analysis.avg_coinsurance_rate:.0f}% in-network), "
+                    f"which means you'll pay more when using out-of-network providers.",
                 )
             else:
                 parts.append(
@@ -128,6 +130,15 @@ def format_cost_explanation(
                 )
         else:
             parts.append(f"Out-of-network coinsurance is {analysis.out_of_network_rate:.0f}%.")
+    
+    # Add cost estimation guidance
+    if analysis.cost_sharing_method == "copay":
+        parts.append("With copay-based cost-sharing, you pay a fixed amount per service, making costs more predictable.")
+    elif analysis.avg_coinsurance_rate is not None:
+        if analysis.avg_coinsurance_rate <= 20:
+            parts.append("With this coinsurance rate, you'll pay a smaller portion of costs after your deductible.")
+        elif analysis.avg_coinsurance_rate >= 50:
+            parts.append("Note: This higher coinsurance rate means you'll pay a larger share of costs, which can add up quickly for expensive services.")
 
     return " ".join(parts)
 
