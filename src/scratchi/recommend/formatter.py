@@ -6,6 +6,79 @@ from typing import Any
 from scratchi.models.recommendation import Recommendation
 
 
+def _compare_recommendations(
+    current: Recommendation,
+    previous: Recommendation,
+) -> list[str]:
+    """Compare two recommendations and identify key differences.
+
+    Compares the current (lower-ranked) recommendation with the previous
+    (higher-ranked) recommendation to identify why the previous plan ranks higher.
+
+    Args:
+        current: Current recommendation (lower rank/higher number)
+        previous: Previous recommendation (higher rank/lower number)
+
+    Returns:
+        List of key difference descriptions (max 3) highlighting why
+        the previous plan ranks higher
+    """
+    differences: list[str] = []
+
+    # Compare coverage analysis first (often most important)
+    current_cov = current.reasoning_chain.coverage_analysis
+    previous_cov = previous.reasoning_chain.coverage_analysis
+
+    if current_cov.required_benefits_covered != previous_cov.required_benefits_covered:
+        differences.append(
+            f"Covers {previous_cov.required_benefits_covered} vs {current_cov.required_benefits_covered} required benefits",
+        )
+    elif len(previous_cov.missing_benefits) < len(current_cov.missing_benefits):
+        differences.append(
+            f"Fewer missing benefits ({len(previous_cov.missing_benefits)} vs {len(current_cov.missing_benefits)})",
+        )
+
+    # Compare user fit scores (coverage, cost, limit)
+    score_diff_threshold = 0.05  # 5% difference threshold
+    for dimension in ["coverage", "cost", "limit"]:
+        if len(differences) >= 3:
+            break
+        current_score = current.user_fit_scores.get(dimension, 0.0)
+        previous_score = previous.user_fit_scores.get(dimension, 0.0)
+        diff = previous_score - current_score
+
+        if diff > score_diff_threshold:  # Only show if previous is significantly better
+            differences.append(
+                f"Higher {dimension.capitalize()} score ({previous_score:.0%} vs {current_score:.0%})",
+            )
+
+    # Compare cost analysis (annual maximum)
+    if len(differences) < 3:
+        current_cost = current.reasoning_chain.cost_analysis
+        previous_cost = previous.reasoning_chain.cost_analysis
+
+        if previous_cost.annual_maximum is not None:
+            if current_cost.annual_maximum is None:
+                differences.append(f"Has annual maximum (${previous_cost.annual_maximum:,.0f})")
+            elif previous_cost.annual_maximum > current_cost.annual_maximum * 1.1:  # 10% higher
+                differences.append(
+                    f"Higher annual maximum (${previous_cost.annual_maximum:,.0f} vs ${current_cost.annual_maximum:,.0f})",
+                )
+
+    # Compare limit analysis
+    if len(differences) < 3:
+        current_limit = current.reasoning_chain.limit_analysis
+        previous_limit = previous.reasoning_chain.limit_analysis
+
+        if len(previous_limit.restrictive_limits) < len(current_limit.restrictive_limits):
+            differences.append(
+                f"Fewer restrictive limits ({len(previous_limit.restrictive_limits)} vs {len(current_limit.restrictive_limits)})",
+            )
+
+    # Return top 3 differences
+    return differences[:3]
+
+
 def format_recommendations_json(
     recommendations: list[Recommendation],
     user_profile: dict[str, Any] | None = None,
@@ -114,7 +187,17 @@ def format_recommendations_text(
             lines.append(f"  Required Benefits: {len(required_benefits)} benefit(s)")
         lines.append("")
 
-    for rec in recommendations:
+    for idx, rec in enumerate(recommendations):
+        # Add comparison with previous plan if not the first one
+        if idx > 0:
+            previous = recommendations[idx - 1]
+            differences = _compare_recommendations(rec, previous)
+            if differences:
+                lines.append(f"Key Differences from Rank #{previous.rank}:")
+                for diff in differences:
+                    lines.append(f"  • {diff}")
+                lines.append("")
+
         lines.append(f"Rank #{rec.rank}: {rec.plan_id}")
         lines.append(f"Overall Score: {rec.overall_score:.2%}")
         lines.append("")
