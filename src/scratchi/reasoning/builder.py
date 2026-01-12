@@ -372,8 +372,8 @@ class ReasoningBuilder:
                     f"Covers all {coverage_analysis.required_benefits_total} required benefits",
                 )
 
-        if cost_analysis.annual_maximum is not None and cost_analysis.annual_maximum >= 3000:
-            strengths.append(f"Generous annual maximum (${cost_analysis.annual_maximum:,.0f})")
+        if cost_analysis.annual_maximum is not None:
+            strengths.append(f"Annual maximum: ${cost_analysis.annual_maximum:,.0f}")
 
         if cost_analysis.copay_available and user_profile.preferred_cost_sharing.value == "Copay":
             strengths.append("Uses copay-based cost-sharing (matches preference)")

@@ -53,7 +53,7 @@ def format_coverage_explanation(
         ehb_ratio = analysis.ehb_benefits_count / max(analysis.total_benefits_count, 1)
         parts.append(
             f"Plan includes {analysis.ehb_benefits_count} Essential Health Benefits "
-            f"({ehb_ratio:.0%} of total benefits).",
+            f"({ehb_ratio:.0%} of {analysis.total_benefits_count} total benefits).",
         )
 
     return " ".join(parts)

@@ -98,6 +98,22 @@ def format_recommendations_text(
     lines.append("=" * 60)
     lines.append("")
 
+    if user_profile:
+        lines.append("User Profile:")
+        lines.append(f"  Family Size: {user_profile.get('family_size', 'N/A')}")
+        if user_profile.get("children_count") is not None:
+            lines.append(f"  Children: {user_profile.get('children_count')}")
+        if user_profile.get("adults_count") is not None:
+            lines.append(f"  Adults: {user_profile.get('adults_count')}")
+        if user_profile.get("expected_usage"):
+            lines.append(f"  Expected Usage: {user_profile.get('expected_usage')}")
+        if user_profile.get("preferred_cost_sharing"):
+            lines.append(f"  Preferred Cost Sharing: {user_profile.get('preferred_cost_sharing')}")
+        required_benefits = user_profile.get("required_benefits", [])
+        if required_benefits:
+            lines.append(f"  Required Benefits: {len(required_benefits)} benefit(s)")
+        lines.append("")
+
     for rec in recommendations:
         lines.append(f"Rank #{rec.rank}: {rec.plan_id}")
         lines.append(f"Overall Score: {rec.overall_score:.2%}")
