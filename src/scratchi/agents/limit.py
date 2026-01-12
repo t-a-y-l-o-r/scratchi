@@ -82,6 +82,10 @@ class LimitAgent:
                 limited_benefits += 1
 
         if total_covered == 0:
+            logger.debug(
+                f"Plan {plan.plan_id}: No covered benefits found for quantity limit calculation, "
+                "using neutral score (0.5)",
+            )
             return 0.5  # Neutral if no covered benefits
 
         # Score: fewer limits = higher score
@@ -129,6 +133,10 @@ class LimitAgent:
                     time_limited_benefits += 1
 
         if total_covered == 0:
+            logger.debug(
+                f"Plan {plan.plan_id}: No covered benefits found for time limit calculation, "
+                "using neutral score (0.5)",
+            )
             return 0.5  # Neutral if no covered benefits
 
         # Score: fewer time limits = higher score

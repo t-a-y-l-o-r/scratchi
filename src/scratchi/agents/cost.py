@@ -105,6 +105,10 @@ class CostAgent:
 
         total = copay_count + coinsurance_count
         if total == 0:
+            logger.debug(
+                f"Plan {plan.plan_id}: No cost-sharing data found (no copays or coinsurance), "
+                "using neutral score (0.5)",
+            )
             return 0.5  # Neutral if unclear
 
         copay_ratio = copay_count / total
@@ -140,6 +144,9 @@ class CostAgent:
                 rates.append(rate)
 
         if not rates:
+            logger.debug(
+                f"Plan {plan.plan_id}: No coinsurance data found, using neutral score (0.5)",
+            )
             return 0.5  # Neutral if no coinsurance data
 
         avg_rate = sum(rates) / len(rates)
@@ -202,6 +209,10 @@ class CostAgent:
                             continue
 
         if not max_amounts:
+            logger.debug(
+                f"Plan {plan.plan_id}: No annual maximum data found in explanations, "
+                "using neutral score (0.5)",
+            )
             return 0.5  # Neutral if no maximum data found
 
         # Use highest maximum found
@@ -243,6 +254,10 @@ class CostAgent:
                 oon_rates.append(rate)
 
         if not oon_rates:
+            logger.debug(
+                f"Plan {plan.plan_id}: No out-of-network coinsurance data found, "
+                "using neutral score (0.5)",
+            )
             return 0.5  # Neutral if no OON data
 
         avg_oon_rate = sum(oon_rates) / len(oon_rates)
