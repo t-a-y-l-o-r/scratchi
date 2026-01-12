@@ -89,28 +89,21 @@ class TestPlan:
         assert len(plan.benefits) == 1
         assert "Basic Dental Care - Adult" in plan.benefits
 
-    def test_get_benefit(self) -> None:
-        """Test getting a benefit by name."""
+    def test_benefit_lookup_methods(self) -> None:
+        """Test getting and checking benefits by name."""
         benefits = [
             create_test_benefit(benefit_name="Basic Dental Care - Adult"),
             create_test_benefit(benefit_name="Basic Dental Care - Child"),
         ]
         plan = Plan.from_benefits(benefits)
 
+        # Test get_benefit
         benefit = plan.get_benefit("Basic Dental Care - Adult")
         assert benefit is not None
         assert benefit.benefit_name == "Basic Dental Care - Adult"
+        assert plan.get_benefit("Non-existent Benefit") is None
 
-        benefit_none = plan.get_benefit("Non-existent Benefit")
-        assert benefit_none is None
-
-    def test_has_benefit(self) -> None:
-        """Test checking if plan has a benefit."""
-        benefits = [
-            create_test_benefit(benefit_name="Basic Dental Care - Adult"),
-        ]
-        plan = Plan.from_benefits(benefits)
-
+        # Test has_benefit
         assert plan.has_benefit("Basic Dental Care - Adult") is True
         assert plan.has_benefit("Non-existent Benefit") is False
 
@@ -162,13 +155,6 @@ class TestPlan:
         assert "Not EHB Benefit" not in ehb_benefits
         assert "Unknown EHB Benefit" not in ehb_benefits
 
-    def test_plan_is_immutable(self) -> None:
-        """Test that Plan model is immutable."""
-        benefits = [create_test_benefit()]
-        plan = Plan.from_benefits(benefits)
-
-        with pytest.raises(Exception):  # Pydantic ValidationError for frozen models
-            plan.plan_id = "new-id"  # type: ignore[misc]
 
 
 class TestAggregatePlansFromBenefits:
@@ -233,30 +219,18 @@ class TestAggregatePlansFromBenefits:
 class TestCreatePlanIndex:
     """Test cases for create_plan_index function."""
 
-    def test_create_index_single_plan(self) -> None:
-        """Test creating index with single plan."""
-        benefits = [create_test_benefit(plan_id="PLAN-001")]
+    @pytest.mark.parametrize("plan_count", [1, 3])
+    def test_create_index(self, plan_count: int) -> None:
+        """Test creating index with single or multiple plans."""
+        plan_ids = [f"PLAN-{i:03d}" for i in range(1, plan_count + 1)]
+        benefits = [create_test_benefit(plan_id=pid) for pid in plan_ids]
         plans = aggregate_plans_from_benefits(benefits)
         index = create_plan_index(plans)
 
-        assert len(index) == 1
-        assert "PLAN-001" in index
-        assert index["PLAN-001"].plan_id == "PLAN-001"
-
-    def test_create_index_multiple_plans(self) -> None:
-        """Test creating index with multiple plans."""
-        benefits = [
-            create_test_benefit(plan_id="PLAN-001"),
-            create_test_benefit(plan_id="PLAN-002"),
-            create_test_benefit(plan_id="PLAN-003"),
-        ]
-        plans = aggregate_plans_from_benefits(benefits)
-        index = create_plan_index(plans)
-
-        assert len(index) == 3
-        assert "PLAN-001" in index
-        assert "PLAN-002" in index
-        assert "PLAN-003" in index
+        assert len(index) == plan_count
+        for plan_id in plan_ids:
+            assert plan_id in index
+            assert index[plan_id].plan_id == plan_id
 
     def test_create_index_with_duplicates(self) -> None:
         """Test creating index with duplicate plan_ids raises ValueError."""

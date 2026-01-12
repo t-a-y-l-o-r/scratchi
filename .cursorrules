@@ -55,6 +55,7 @@
 - Document complex algorithms or business logic with inline comments
 - Document all public APIs
 - Never update documentation files (README.md, docs/, etc.) unless explicitly asked to
+- When summarizing or discussing plans or choices, be concise rather than exhaustive
 
 ## Performance
 - Profile before optimizing

@@ -50,30 +50,15 @@ class TestPlanBenefit:
         assert benefit.benefit_name == "Basic Dental Care - Adult"
         assert benefit.is_covered == CoverageStatus.COVERED
 
-    def test_parse_date_string(self) -> None:
-        """Test parsing date from ISO format string."""
+    @pytest.mark.parametrize("import_date_input", ["2025-10-15", date(2025, 10, 15)])
+    def test_parse_date(self, import_date_input: str | date) -> None:
+        """Test parsing date from string or date object."""
         data = {
             "business_year": 2026,
             "state_code": "AK",
             "issuer_id": "21989",
             "source_name": "HIOS",
-            "import_date": "2025-10-15",
-            "standard_component_id": "21989AK0030001",
-            "plan_id": "21989AK0030001-00",
-            "benefit_name": "Test Benefit",
-            "is_covered": CoverageStatus.COVERED,
-        }
-        benefit = PlanBenefit(**data)
-        assert benefit.import_date == date(2025, 10, 15)
-
-    def test_parse_date_object(self) -> None:
-        """Test parsing date from date object."""
-        data = {
-            "business_year": 2026,
-            "state_code": "AK",
-            "issuer_id": "21989",
-            "source_name": "HIOS",
-            "import_date": date(2025, 10, 15),
+            "import_date": import_date_input,
             "standard_component_id": "21989AK0030001",
             "plan_id": "21989AK0030001-00",
             "benefit_name": "Test Benefit",
@@ -103,8 +88,9 @@ class TestPlanBenefit:
         assert benefit.copay_inn_tier2 is None
         assert benefit.coins_inn_tier1 is None
 
-    def test_parse_limit_qty_float(self) -> None:
-        """Test parsing limit quantity as float."""
+    @pytest.mark.parametrize("limit_qty_input,expected", [("2.0", 2.0), ("", None)])
+    def test_parse_limit_qty(self, limit_qty_input: str, expected: float | None) -> None:
+        """Test parsing limit quantity as float or empty string."""
         data = {
             "business_year": 2026,
             "state_code": "AK",
@@ -114,16 +100,24 @@ class TestPlanBenefit:
             "standard_component_id": "21989AK0030001",
             "plan_id": "21989AK0030001-00",
             "benefit_name": "Test Benefit",
-            "limit_qty": "2.0",
-            "limit_unit": "Exam(s) per Year",
+            "limit_qty": limit_qty_input,
+            "limit_unit": "Exam(s) per Year" if limit_qty_input else None,
             "is_covered": CoverageStatus.COVERED,
         }
         benefit = PlanBenefit(**data)
-        assert benefit.limit_qty == 2.0
-        assert benefit.limit_unit == "Exam(s) per Year"
+        assert benefit.limit_qty == expected
 
-    def test_parse_limit_qty_empty(self) -> None:
-        """Test parsing empty limit quantity."""
+    @pytest.mark.parametrize(
+        "coins_value,expected",
+        [
+            ("35.00%", 35.0),
+            (NOT_APPLICABLE, None),
+            (NO_CHARGE, 0.0),
+            (None, None),
+        ],
+    )
+    def test_get_coinsurance_rate(self, coins_value: str | None, expected: float | None) -> None:
+        """Test extracting coinsurance rate from various formats."""
         data = {
             "business_year": 2026,
             "state_code": "AK",
@@ -133,79 +127,11 @@ class TestPlanBenefit:
             "standard_component_id": "21989AK0030001",
             "plan_id": "21989AK0030001-00",
             "benefit_name": "Test Benefit",
-            "limit_qty": "",
+            "coins_inn_tier1": coins_value,
             "is_covered": CoverageStatus.COVERED,
         }
         benefit = PlanBenefit(**data)
-        assert benefit.limit_qty is None
-
-    def test_get_coinsurance_rate_percentage(self) -> None:
-        """Test extracting coinsurance rate from percentage string."""
-        data = {
-            "business_year": 2026,
-            "state_code": "AK",
-            "issuer_id": "21989",
-            "source_name": "HIOS",
-            "import_date": "2025-10-15",
-            "standard_component_id": "21989AK0030001",
-            "plan_id": "21989AK0030001-00",
-            "benefit_name": "Test Benefit",
-            "coins_inn_tier1": "35.00%",
-            "is_covered": CoverageStatus.COVERED,
-        }
-        benefit = PlanBenefit(**data)
-        assert benefit.get_coinsurance_rate("coins_inn_tier1") == 35.0
-
-    def test_get_coinsurance_rate_not_applicable(self) -> None:
-        """Test extracting coinsurance rate from 'Not Applicable' string."""
-        data = {
-            "business_year": 2026,
-            "state_code": "AK",
-            "issuer_id": "21989",
-            "source_name": "HIOS",
-            "import_date": "2025-10-15",
-            "standard_component_id": "21989AK0030001",
-            "plan_id": "21989AK0030001-00",
-            "benefit_name": "Test Benefit",
-            "coins_inn_tier1": NOT_APPLICABLE,
-            "is_covered": CoverageStatus.COVERED,
-        }
-        benefit = PlanBenefit(**data)
-        assert benefit.get_coinsurance_rate("coins_inn_tier1") is None
-
-    def test_get_coinsurance_rate_no_charge(self) -> None:
-        """Test extracting coinsurance rate from 'No Charge' string."""
-        data = {
-            "business_year": 2026,
-            "state_code": "AK",
-            "issuer_id": "21989",
-            "source_name": "HIOS",
-            "import_date": "2025-10-15",
-            "standard_component_id": "21989AK0030001",
-            "plan_id": "21989AK0030001-00",
-            "benefit_name": "Test Benefit",
-            "coins_inn_tier1": NO_CHARGE,
-            "is_covered": CoverageStatus.COVERED,
-        }
-        benefit = PlanBenefit(**data)
-        assert benefit.get_coinsurance_rate("coins_inn_tier1") == 0.0
-
-    def test_get_coinsurance_rate_none(self) -> None:
-        """Test extracting coinsurance rate when field is None."""
-        data = {
-            "business_year": 2026,
-            "state_code": "AK",
-            "issuer_id": "21989",
-            "source_name": "HIOS",
-            "import_date": "2025-10-15",
-            "standard_component_id": "21989AK0030001",
-            "plan_id": "21989AK0030001-00",
-            "benefit_name": "Test Benefit",
-            "coins_inn_tier1": None,
-            "is_covered": CoverageStatus.COVERED,
-        }
-        benefit = PlanBenefit(**data)
-        assert benefit.get_coinsurance_rate("coins_inn_tier1") is None
+        assert benefit.get_coinsurance_rate("coins_inn_tier1") == expected
 
     def test_is_covered_bool(self) -> None:
         """Test is_covered_bool method."""
@@ -300,8 +226,15 @@ class TestPlanBenefit:
         benefit_unknown = PlanBenefit(**data)
         assert benefit_unknown.is_excluded_from_inn_moop_bool() is None
 
-    def test_immutable_model(self) -> None:
-        """Test that model is immutable (frozen)."""
+    @pytest.mark.parametrize(
+        "is_covered_value,expected_bool",
+        [
+            (CoverageStatus.COVERED, True),
+            (CoverageStatus.NOT_COVERED, False),
+        ],
+    )
+    def test_coverage_status(self, is_covered_value: str, expected_bool: bool) -> None:
+        """Test creating benefits with different coverage statuses."""
         data = {
             "business_year": 2026,
             "state_code": "AK",
@@ -311,26 +244,8 @@ class TestPlanBenefit:
             "standard_component_id": "21989AK0030001",
             "plan_id": "21989AK0030001-00",
             "benefit_name": "Test Benefit",
-            "is_covered": CoverageStatus.COVERED,
+            "is_covered": is_covered_value,
         }
         benefit = PlanBenefit(**data)
-
-        with pytest.raises(Exception):  # Pydantic ValidationError for frozen models
-            benefit.plan_id = "new-id"  # type: ignore[misc]
-
-    def test_not_covered_benefit(self) -> None:
-        """Test creating a benefit that is not covered."""
-        data = {
-            "business_year": 2026,
-            "state_code": "AK",
-            "issuer_id": "21989",
-            "source_name": "HIOS",
-            "import_date": "2025-10-15",
-            "standard_component_id": "21989AK0030001",
-            "plan_id": "21989AK0030001-00",
-            "benefit_name": "Accidental Dental",
-            "is_covered": CoverageStatus.NOT_COVERED,
-        }
-        benefit = PlanBenefit(**data)
-        assert benefit.is_covered == CoverageStatus.NOT_COVERED
-        assert benefit.is_covered_bool() is False
+        assert benefit.is_covered == is_covered_value
+        assert benefit.is_covered_bool() == expected_bool

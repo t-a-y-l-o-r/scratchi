@@ -11,10 +11,22 @@ from scratchi.models.constants import (
     YesNoStatus,
 )
 from scratchi.models.plan import Plan, PlanBenefit
+from scratchi.models.user import (
+    BudgetConstraints,
+    CostSharingPreference,
+    ExpectedUsage,
+    PriorityWeights,
+    UserProfile,
+)
 
 __all__ = [
     "Plan",
     "PlanBenefit",
+    "UserProfile",
+    "PriorityWeights",
+    "ExpectedUsage",
+    "CostSharingPreference",
+    "BudgetConstraints",
     "CoverageStatus",
     "YesNoStatus",
     "EHBStatus",
