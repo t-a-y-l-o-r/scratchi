@@ -107,6 +107,16 @@ class RecommendationEngine:
 
         # Limit to top N if specified
         if top_n is not None:
+            if top_n == 0:
+                logger.warning(
+                    "top_n=0 requested, returning empty recommendations list",
+                )
+                return []
+            if top_n > len(recommendations):
+                logger.info(
+                    f"top_n ({top_n}) exceeds number of available plans "
+                    f"({len(recommendations)}), returning all recommendations",
+                )
             recommendations = recommendations[:top_n]
 
         if recommendations:

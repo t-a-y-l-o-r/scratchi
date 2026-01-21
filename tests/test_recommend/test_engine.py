@@ -152,3 +152,81 @@ class TestRecommendationEngine:
         assert "recommendation" in results[0]
         assert results[0]["plan"].plan_id == "PLAN-001"
         assert results[0]["recommendation"].plan_id == "PLAN-001"
+
+    def test_recommend_top_n_zero(self) -> None:
+        """Test that top_n=0 returns empty list."""
+        engine = RecommendationEngine()
+        plans = [
+            create_test_plan("PLAN-001", coinsurance=20.0),
+            create_test_plan("PLAN-002", coinsurance=30.0),
+            create_test_plan("PLAN-003", coinsurance=40.0),
+        ]
+
+        user_profile = UserProfile(
+            family_size=2,
+            children_count=0,
+            adults_count=2,
+            expected_usage=ExpectedUsage.MEDIUM,
+            priorities=PriorityWeights.default(),
+            required_benefits=["Basic Dental Care - Adult"],
+            excluded_benefits_ok=[],
+            preferred_cost_sharing=CostSharingPreference.EITHER,
+        )
+
+        recommendations = engine.recommend(plans, user_profile, top_n=0)
+
+        assert len(recommendations) == 0
+
+    def test_recommend_top_n_greater_than_total_plans(self) -> None:
+        """Test that top_n > total_plans returns all plans."""
+        engine = RecommendationEngine()
+        plans = [
+            create_test_plan("PLAN-001", coinsurance=20.0),
+            create_test_plan("PLAN-002", coinsurance=30.0),
+            create_test_plan("PLAN-003", coinsurance=40.0),
+        ]
+
+        user_profile = UserProfile(
+            family_size=2,
+            children_count=0,
+            adults_count=2,
+            expected_usage=ExpectedUsage.MEDIUM,
+            priorities=PriorityWeights.default(),
+            required_benefits=["Basic Dental Care - Adult"],
+            excluded_benefits_ok=[],
+            preferred_cost_sharing=CostSharingPreference.EITHER,
+        )
+
+        recommendations = engine.recommend(plans, user_profile, top_n=10)
+
+        assert len(recommendations) == 3
+        assert recommendations[0].rank == 1
+        assert recommendations[1].rank == 2
+        assert recommendations[2].rank == 3
+
+    def test_recommend_top_n_none(self) -> None:
+        """Test that top_n=None returns all plans."""
+        engine = RecommendationEngine()
+        plans = [
+            create_test_plan("PLAN-001", coinsurance=20.0),
+            create_test_plan("PLAN-002", coinsurance=30.0),
+            create_test_plan("PLAN-003", coinsurance=40.0),
+        ]
+
+        user_profile = UserProfile(
+            family_size=2,
+            children_count=0,
+            adults_count=2,
+            expected_usage=ExpectedUsage.MEDIUM,
+            priorities=PriorityWeights.default(),
+            required_benefits=["Basic Dental Care - Adult"],
+            excluded_benefits_ok=[],
+            preferred_cost_sharing=CostSharingPreference.EITHER,
+        )
+
+        recommendations = engine.recommend(plans, user_profile, top_n=None)
+
+        assert len(recommendations) == 3
+        assert recommendations[0].rank == 1
+        assert recommendations[1].rank == 2
+        assert recommendations[2].rank == 3
