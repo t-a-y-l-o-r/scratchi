@@ -488,3 +488,65 @@ class TestPlanAggregation:
         finally:
             csv_path.unlink()
 
+    def test_aggregate_plans_groups_by_plan_id(self) -> None:
+        """Test that aggregate_plans_from_benefits groups benefits by plan_id."""
+        # Create benefits with same plan_id (should be grouped into one plan)
+        benefit1 = create_base_test_row(
+            plan_id="PLAN-001",
+            benefit_name="Benefit 1",
+        )
+        benefit2 = create_base_test_row(
+            plan_id="PLAN-001",  # Same plan_id
+            benefit_name="Benefit 2",
+        )
+        benefit3 = create_base_test_row(
+            plan_id="PLAN-002",  # Different plan_id
+            benefit_name="Benefit 3",
+        )
+
+        # Parse benefits
+        benefits = [
+            parse_plan_benefit_row(benefit1),
+            parse_plan_benefit_row(benefit2),
+            parse_plan_benefit_row(benefit3),
+        ]
+
+        # Should create two plans (grouped by plan_id)
+        plans = aggregate_plans_from_benefits(benefits)
+        assert len(plans) == 2
+        plan_ids = {plan.plan_id for plan in plans}
+        assert plan_ids == {"PLAN-001", "PLAN-002"}
+        # PLAN-001 should have 2 benefits
+        plan_001 = next(p for p in plans if p.plan_id == "PLAN-001")
+        assert len(plan_001.benefits) == 2
+
+    def test_aggregate_plans_validates_data_quality(self) -> None:
+        """Test that aggregate_plans_from_benefits validates plan data quality."""
+        # Create a plan with validation issues
+        csv_content = [
+            CSV_HEADER_ROW,
+            create_csv_data_row(
+                plan_id="21989AK0030001-00",
+                standard_component_id="WRONG-ID",  # Doesn't match plan_id prefix
+                benefit_name="Basic Dental Care - Adult",
+                copay_inn_tier1="$20",
+                coins_inn_tier1="30%",  # Both copay and coinsurance
+                is_covered=CoverageStatus.NOT_COVERED,  # Not covered
+                ehb_var_reason=EHBStatus.NOT_EHB,
+                is_excl_from_inn_moop=YesNoStatus.YES,
+                is_excl_from_oon_moop=YesNoStatus.YES,
+            ),
+        ]
+        csv_path = self.create_test_csv(csv_content)
+        try:
+            benefits = load_plans_from_csv(csv_path)
+            # Should not raise, but should log warnings
+            plans = aggregate_plans_from_benefits(benefits)
+            assert len(plans) == 1
+
+            # Validate the plan has issues
+            issues = plans[0].validate()
+            assert len(issues) >= 3  # Should have multiple validation issues
+        finally:
+            csv_path.unlink()
+

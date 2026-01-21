@@ -339,6 +339,32 @@ def aggregate_plans_from_benefits(benefits: list[PlanBenefit]) -> list[Plan]:
     if not plans:
         raise ValueError("No valid plans could be created from benefits")
 
+    # Validate plan_id uniqueness
+    plan_ids = [plan.plan_id for plan in plans]
+    if len(plan_ids) != len(set(plan_ids)):
+        duplicates = [
+            plan_id for plan_id in plan_ids if plan_ids.count(plan_id) > 1
+        ]
+        raise ValueError(
+            f"Duplicate plan_ids found in dataset: {set(duplicates)}. "
+            "Each plan_id must be unique.",
+        )
+
+    # Validate each plan's data quality
+    validation_issues: list[str] = []
+    for plan in plans:
+        issues = plan.validate()
+        if issues:
+            validation_issues.extend(issues)
+            for issue in issues:
+                logger.warning(f"Plan validation issue: {issue}")
+
+    if validation_issues:
+        logger.warning(
+            f"Found {len(validation_issues)} plan validation issues. "
+            "See warnings above for details.",
+        )
+
     logger.info(f"Aggregated {len(benefits)} benefits into {len(plans)} plans")
     return plans
 

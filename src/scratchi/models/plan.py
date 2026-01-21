@@ -467,4 +467,96 @@ class Plan(BaseModel):
             if benefit.is_ehb_bool() is True
         }
 
+    def validate(self) -> list[str]:
+        """Validate plan data quality and consistency.
+
+        Performs various data quality checks and returns a list of validation
+        issues (warnings). Returns empty list if plan is valid.
+
+        Checks performed:
+        - standard_component_id matches plan_id prefix
+        - All benefits are not marked "Not Covered" (data quality warning)
+        - Cost-sharing consistency (copay OR coinsurance, not both for same tier)
+
+        Returns:
+            List of validation warning messages. Empty list means plan is valid.
+        """
+        issues: list[str] = []
+
+        # Check standard_component_id matches plan_id prefix
+        if not self.plan_id.startswith(self.standard_component_id):
+            issues.append(
+                f"standard_component_id '{self.standard_component_id}' does not match "
+                f"plan_id '{self.plan_id}' prefix",
+            )
+
+        # Check for plans with all benefits marked "Not Covered" (data quality issue)
+        covered_count = sum(
+            1 for benefit in self.benefits.values()
+            if benefit.is_covered == CoverageStatus.COVERED
+        )
+        if covered_count == 0:
+            issues.append(
+                f"Plan {self.plan_id} has no covered benefits - all benefits are marked "
+                "'Not Covered'. This may indicate a data quality issue.",
+            )
+
+        # Check cost-sharing consistency for each benefit
+        for benefit_name, benefit in self.benefits.items():
+            # Check tier 1 in-network: copay OR coinsurance, not both
+            has_copay_tier1 = (
+                benefit.copay_inn_tier1 is not None
+                and benefit.copay_inn_tier1 != NOT_APPLICABLE
+                and benefit.copay_inn_tier1 != ""
+            )
+            has_coins_tier1 = (
+                benefit.coins_inn_tier1 is not None
+                and benefit.coins_inn_tier1 != NOT_APPLICABLE
+                and benefit.coins_inn_tier1 != ""
+            )
+            if has_copay_tier1 and has_coins_tier1:
+                issues.append(
+                    f"Plan {self.plan_id}, benefit '{benefit_name}': "
+                    "Both copay and coinsurance specified for tier 1 in-network. "
+                    "Should have one or the other, not both.",
+                )
+
+            # Check tier 2 in-network: copay OR coinsurance, not both
+            has_copay_tier2 = (
+                benefit.copay_inn_tier2 is not None
+                and benefit.copay_inn_tier2 != NOT_APPLICABLE
+                and benefit.copay_inn_tier2 != ""
+            )
+            has_coins_tier2 = (
+                benefit.coins_inn_tier2 is not None
+                and benefit.coins_inn_tier2 != NOT_APPLICABLE
+                and benefit.coins_inn_tier2 != ""
+            )
+            if has_copay_tier2 and has_coins_tier2:
+                issues.append(
+                    f"Plan {self.plan_id}, benefit '{benefit_name}': "
+                    "Both copay and coinsurance specified for tier 2 in-network. "
+                    "Should have one or the other, not both.",
+                )
+
+            # Check out-of-network: copay OR coinsurance, not both
+            has_copay_oon = (
+                benefit.copay_outof_net is not None
+                and benefit.copay_outof_net != NOT_APPLICABLE
+                and benefit.copay_outof_net != ""
+            )
+            has_coins_oon = (
+                benefit.coins_outof_net is not None
+                and benefit.coins_outof_net != NOT_APPLICABLE
+                and benefit.coins_outof_net != ""
+            )
+            if has_copay_oon and has_coins_oon:
+                issues.append(
+                    f"Plan {self.plan_id}, benefit '{benefit_name}': "
+                    "Both copay and coinsurance specified for out-of-network. "
+                    "Should have one or the other, not both.",
+                )
+
+        return issues
+
     model_config = ConfigDict(frozen=True)  # Make models immutable after creation
