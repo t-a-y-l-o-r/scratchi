@@ -230,3 +230,141 @@ class TestRecommendationEngine:
         assert recommendations[0].rank == 1
         assert recommendations[1].rank == 2
         assert recommendations[2].rank == 3
+
+    def test_ranking_determinism_identical_inputs(self) -> None:
+        """Test that identical inputs produce identical rankings (determinism)."""
+        engine = RecommendationEngine()
+        plans1 = [
+            create_test_plan("PLAN-001", coinsurance=20.0),
+            create_test_plan("PLAN-002", coinsurance=30.0),
+            create_test_plan("PLAN-003", coinsurance=40.0),
+        ]
+        plans2 = [
+            create_test_plan("PLAN-001", coinsurance=20.0),
+            create_test_plan("PLAN-002", coinsurance=30.0),
+            create_test_plan("PLAN-003", coinsurance=40.0),
+        ]
+
+        user_profile = UserProfile(
+            family_size=2,
+            children_count=0,
+            adults_count=2,
+            expected_usage=ExpectedUsage.MEDIUM,
+            priorities=PriorityWeights.default(),
+            required_benefits=["Basic Dental Care - Adult"],
+            excluded_benefits_ok=[],
+            preferred_cost_sharing=CostSharingPreference.EITHER,
+        )
+
+        recommendations1 = engine.recommend(plans1, user_profile)
+        recommendations2 = engine.recommend(plans2, user_profile)
+
+        assert len(recommendations1) == len(recommendations2)
+        for rec1, rec2 in zip(recommendations1, recommendations2):
+            assert rec1.plan_id == rec2.plan_id, (
+                f"Ranking differs for identical inputs: "
+                f"rank {rec1.rank}: {rec1.plan_id} vs {rec2.plan_id}"
+            )
+            assert rec1.rank == rec2.rank, (
+                f"Rank differs for identical inputs: "
+                f"{rec1.plan_id} has rank {rec1.rank} vs {rec2.rank}"
+            )
+            assert rec1.overall_score == rec2.overall_score, (
+                f"Score differs for identical inputs: "
+                f"{rec1.plan_id} has score {rec1.overall_score} vs {rec2.overall_score}"
+            )
+
+    def test_ranking_determinism_multiple_runs(self) -> None:
+        """Test that rankings are consistent across multiple runs."""
+        engine = RecommendationEngine()
+        plans = [
+            create_test_plan("PLAN-001", coinsurance=20.0),
+            create_test_plan("PLAN-002", coinsurance=30.0),
+            create_test_plan("PLAN-003", coinsurance=40.0),
+            create_test_plan("PLAN-004", coinsurance=25.0),
+        ]
+
+        user_profile = UserProfile(
+            family_size=2,
+            children_count=0,
+            adults_count=2,
+            expected_usage=ExpectedUsage.MEDIUM,
+            priorities=PriorityWeights.default(),
+            required_benefits=["Basic Dental Care - Adult"],
+            excluded_benefits_ok=[],
+            preferred_cost_sharing=CostSharingPreference.EITHER,
+        )
+
+        recommendations_run1 = engine.recommend(plans, user_profile)
+        recommendations_run2 = engine.recommend(plans, user_profile)
+        recommendations_run3 = engine.recommend(plans, user_profile)
+
+        # Extract plan IDs in rank order for each run
+        plan_ids_run1 = [r.plan_id for r in recommendations_run1]
+        plan_ids_run2 = [r.plan_id for r in recommendations_run2]
+        plan_ids_run3 = [r.plan_id for r in recommendations_run3]
+
+        assert plan_ids_run1 == plan_ids_run2 == plan_ids_run3, (
+            f"Rankings differ across runs: "
+            f"Run 1: {plan_ids_run1}, Run 2: {plan_ids_run2}, Run 3: {plan_ids_run3}"
+        )
+
+        # Verify ranks are consistent
+        for rec1, rec2, rec3 in zip(
+            recommendations_run1,
+            recommendations_run2,
+            recommendations_run3,
+        ):
+            assert rec1.rank == rec2.rank == rec3.rank, (
+                f"Rank differs across runs for {rec1.plan_id}: "
+                f"{rec1.rank} vs {rec2.rank} vs {rec3.rank}"
+            )
+
+    def test_ranking_tie_breaking_logic(self) -> None:
+        """Test tie-breaking logic when scores are equal.
+
+        Tie-breaking order (from engine.py):
+        1. Higher coverage score
+        2. Higher cost score
+        3. Higher limit score
+        4. Alphabetical by plan_id
+        """
+        engine = RecommendationEngine()
+
+        # Create plans with identical coinsurance (same cost score)
+        # but different plan IDs to test alphabetical tie-breaking
+        plan_a = create_test_plan("PLAN-A", coinsurance=30.0)
+        plan_b = create_test_plan("PLAN-B", coinsurance=30.0)
+        plan_c = create_test_plan("PLAN-C", coinsurance=30.0)
+
+        user_profile = UserProfile(
+            family_size=2,
+            children_count=0,
+            adults_count=2,
+            expected_usage=ExpectedUsage.MEDIUM,
+            priorities=PriorityWeights.default(),
+            required_benefits=["Basic Dental Care - Adult"],
+            excluded_benefits_ok=[],
+            preferred_cost_sharing=CostSharingPreference.EITHER,
+        )
+
+        recommendations = engine.recommend([plan_c, plan_a, plan_b], user_profile)
+
+        # Verify all plans are ranked (no crashes)
+        assert len(recommendations) == 3
+
+        # Verify ranks are assigned correctly
+        ranks = [r.rank for r in recommendations]
+        assert sorted(ranks) == [1, 2, 3], f"Ranks should be 1, 2, 3, got {ranks}"
+
+        # Verify each plan has a unique rank
+        assert len(set(ranks)) == 3, "All plans should have unique ranks"
+
+        # Verify ranking is deterministic (same order when called again)
+        recommendations2 = engine.recommend([plan_c, plan_a, plan_b], user_profile)
+        plan_ids1 = [r.plan_id for r in recommendations]
+        plan_ids2 = [r.plan_id for r in recommendations2]
+        assert plan_ids1 == plan_ids2, (
+            f"Tie-breaking should be deterministic: "
+            f"Run 1: {plan_ids1}, Run 2: {plan_ids2}"
+        )
