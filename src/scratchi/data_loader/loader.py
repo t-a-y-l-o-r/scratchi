@@ -94,7 +94,17 @@ def parse_plan_benefit_from_tuple(
     try:
         return PlanBenefit(**mapped_data)
     except Exception as error:
-        logger.error(f"Failed to parse row: {mapped_data}")
+        # Log context about which fields might have caused the error
+        # Truncate long strings for readability
+        error_context = {
+            k: (v[:100] + "..." if isinstance(v, str) and len(v) > 100 else v)
+            for k, v in mapped_data.items()
+            if v not in (None, "", "Not Applicable")
+        }
+        logger.error(
+            f"Failed to parse row: {error}. "
+            f"Context (non-empty fields): {error_context}",
+        )
         raise ValueError(f"Invalid row data: {error}") from error
 
 
@@ -127,7 +137,17 @@ def parse_plan_benefit_row(row: dict[str, Any]) -> PlanBenefit:
     try:
         return PlanBenefit(**mapped_data)
     except Exception as error:
-        logger.error(f"Failed to parse row: {mapped_data}")
+        # Log context about which fields might have caused the error
+        # Truncate long strings for readability
+        error_context = {
+            k: (v[:100] + "..." if isinstance(v, str) and len(v) > 100 else v)
+            for k, v in mapped_data.items()
+            if v not in (None, "", "Not Applicable")
+        }
+        logger.error(
+            f"Failed to parse row: {error}. "
+            f"Context (non-empty fields): {error_context}",
+        )
         raise ValueError(f"Invalid row data: {error}") from error
 
 
