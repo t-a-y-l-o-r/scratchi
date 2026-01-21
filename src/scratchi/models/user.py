@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from scratchi.models.plan import normalize_benefit_name
+
 
 class ExpectedUsage(StrEnum):
     """Expected healthcare usage level."""
@@ -119,7 +121,7 @@ class UserProfile:
     budget_constraints: BudgetConstraints | None = None
 
     def __post_init__(self) -> None:
-        """Validate family composition."""
+        """Validate family composition and benefit lists."""
         if self.family_size != self.children_count + self.adults_count:
             raise ValueError(
                 f"family_size ({self.family_size}) must equal "
@@ -133,3 +135,31 @@ class UserProfile:
             )
         if self.adults_count < 1:
             raise ValueError(f"adults_count must be at least 1, got {self.adults_count}")
+
+        # Validate required_benefits doesn't contain duplicates (case-insensitive)
+        normalized_required = [normalize_benefit_name(b) for b in self.required_benefits]
+        if len(normalized_required) != len(set(normalized_required)):
+            duplicates = [
+                original
+                for original, normalized in zip(self.required_benefits, normalized_required)
+                if normalized_required.count(normalized) > 1
+            ]
+            raise ValueError(
+                f"required_benefits contains duplicates: {set(duplicates)}. "
+                "Benefit names are compared case-insensitively with normalized whitespace.",
+            )
+
+        # Validate excluded_benefits_ok doesn't overlap with required_benefits
+        normalized_excluded = [normalize_benefit_name(b) for b in self.excluded_benefits_ok]
+        overlap = set(normalized_required) & set(normalized_excluded)
+        if overlap:
+            # Find original names for the overlapping normalized names
+            overlap_originals = {
+                excluded
+                for excluded, normalized in zip(self.excluded_benefits_ok, normalized_excluded)
+                if normalized in overlap
+            }
+            raise ValueError(
+                f"excluded_benefits_ok overlaps with required_benefits: {overlap_originals}. "
+                "A benefit cannot be both required and excluded.",
+            )

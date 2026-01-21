@@ -179,3 +179,94 @@ class TestUserProfile:
                 excluded_benefits_ok=[],
                 preferred_cost_sharing=CostSharingPreference.EITHER,
             )
+
+    def test_validate_required_benefits_no_duplicates(self) -> None:
+        """Test that required_benefits cannot contain duplicates."""
+        with pytest.raises(ValueError, match="required_benefits contains duplicates"):
+            UserProfile(
+                family_size=2,
+                children_count=0,
+                adults_count=2,
+                expected_usage=ExpectedUsage.MEDIUM,
+                priorities=PriorityWeights.default(),
+                required_benefits=["Basic Dental Care - Adult", "Basic Dental Care - Adult"],
+                excluded_benefits_ok=[],
+                preferred_cost_sharing=CostSharingPreference.EITHER,
+            )
+
+    def test_validate_required_benefits_no_case_insensitive_duplicates(self) -> None:
+        """Test that required_benefits cannot contain case-insensitive duplicates."""
+        with pytest.raises(ValueError, match="required_benefits contains duplicates"):
+            UserProfile(
+                family_size=2,
+                children_count=0,
+                adults_count=2,
+                expected_usage=ExpectedUsage.MEDIUM,
+                priorities=PriorityWeights.default(),
+                required_benefits=[
+                    "Basic Dental Care - Adult",
+                    "BASIC DENTAL CARE - ADULT",
+                ],
+                excluded_benefits_ok=[],
+                preferred_cost_sharing=CostSharingPreference.EITHER,
+            )
+
+    def test_validate_required_benefits_no_whitespace_duplicates(self) -> None:
+        """Test that required_benefits cannot contain duplicates with different whitespace."""
+        with pytest.raises(ValueError, match="required_benefits contains duplicates"):
+            UserProfile(
+                family_size=2,
+                children_count=0,
+                adults_count=2,
+                expected_usage=ExpectedUsage.MEDIUM,
+                priorities=PriorityWeights.default(),
+                required_benefits=[
+                    "Basic Dental Care - Adult",
+                    "Basic  Dental  Care - Adult ",
+                ],
+                excluded_benefits_ok=[],
+                preferred_cost_sharing=CostSharingPreference.EITHER,
+            )
+
+    def test_validate_excluded_benefits_no_overlap_with_required(self) -> None:
+        """Test that excluded_benefits_ok cannot overlap with required_benefits."""
+        with pytest.raises(ValueError, match="excluded_benefits_ok overlaps with required_benefits"):
+            UserProfile(
+                family_size=2,
+                children_count=0,
+                adults_count=2,
+                expected_usage=ExpectedUsage.MEDIUM,
+                priorities=PriorityWeights.default(),
+                required_benefits=["Basic Dental Care - Adult"],
+                excluded_benefits_ok=["Basic Dental Care - Adult"],
+                preferred_cost_sharing=CostSharingPreference.EITHER,
+            )
+
+    def test_validate_excluded_benefits_no_case_insensitive_overlap(self) -> None:
+        """Test that excluded_benefits_ok cannot overlap with required_benefits (case-insensitive)."""
+        with pytest.raises(ValueError, match="excluded_benefits_ok overlaps with required_benefits"):
+            UserProfile(
+                family_size=2,
+                children_count=0,
+                adults_count=2,
+                expected_usage=ExpectedUsage.MEDIUM,
+                priorities=PriorityWeights.default(),
+                required_benefits=["Basic Dental Care - Adult"],
+                excluded_benefits_ok=["BASIC DENTAL CARE - ADULT"],
+                preferred_cost_sharing=CostSharingPreference.EITHER,
+            )
+
+    def test_validate_benefit_lists_valid(self) -> None:
+        """Test that valid benefit lists (no duplicates, no overlap) are accepted."""
+        profile = UserProfile(
+            family_size=2,
+            children_count=0,
+            adults_count=2,
+            expected_usage=ExpectedUsage.MEDIUM,
+            priorities=PriorityWeights.default(),
+            required_benefits=["Basic Dental Care - Adult", "Orthodontia - Child"],
+            excluded_benefits_ok=["Adult Orthodontia", "Periodontics"],
+            preferred_cost_sharing=CostSharingPreference.EITHER,
+        )
+        assert len(profile.required_benefits) == 2
+        assert len(profile.excluded_benefits_ok) == 2
