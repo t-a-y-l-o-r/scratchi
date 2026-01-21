@@ -163,9 +163,12 @@ def load_plans_dataframe(csv_path: str | Path) -> pl.DataFrame:
             null_values=[""],  # Treat empty strings as null
         )
         
-        # Check for empty DataFrame
+        # Check for empty DataFrame (includes CSV with only header row)
         if df.height == 0:
-            raise ValueError(f"CSV file is empty: {csv_path}")
+            raise ValueError(
+                f"CSV file is empty or contains only header row: {csv_path}. "
+                "At least one data row is required.",
+            )
         
         logger.info(f"Loaded {df.height} rows from CSV")
         return df
@@ -243,9 +246,12 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
             null_values=[""],  # Treat empty strings as null
         )
 
-        # Check for empty DataFrame
+        # Check for empty DataFrame (includes CSV with only header row)
         if df.height == 0:
-            raise ValueError(f"CSV file is empty: {csv_path}")
+            raise ValueError(
+                f"CSV file is empty or contains only header row: {csv_path}. "
+                "At least one data row is required.",
+            )
 
         logger.info(f"Loaded {len(df)} rows from CSV")
 
@@ -280,7 +286,10 @@ def load_plans_from_csv(csv_path: str | Path) -> list[PlanBenefit]:
                 logger.warning(f"  ... and {len(errors) - 5} more errors")
 
         if not benefits:
-            raise ValueError("No valid plan benefits found in CSV file")
+            raise ValueError(
+                "No valid plan benefits found in CSV file. "
+                "All rows may be invalid or the file may contain only a header row.",
+            )
 
         logger.info(f"Successfully parsed {len(benefits)} plan benefits")
         return benefits

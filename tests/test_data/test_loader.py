@@ -316,6 +316,26 @@ class TestLoadPlansFromCSV:
         finally:
             csv_path.unlink()
 
+    def test_load_csv_header_only(self) -> None:
+        """Test loading CSV containing only header row raises ValueError."""
+        csv_content = [CSV_HEADER_ROW]
+        csv_path = self.create_test_csv(csv_content)
+        try:
+            with pytest.raises(ValueError, match="empty|No valid"):
+                load_plans_from_csv(csv_path)
+        finally:
+            csv_path.unlink()
+
+    def test_plan_from_benefits_empty_list(self) -> None:
+        """Test that Plan.from_benefits rejects empty benefits list.
+
+        A plan with no benefits is not valid - it cannot provide any coverage.
+        """
+        from scratchi.models.plan import Plan
+
+        with pytest.raises(ValueError, match="Cannot create Plan from empty benefits list"):
+            Plan.from_benefits([])
+
     def test_load_csv_with_invalid_rows(self) -> None:
         """Test loading CSV with some invalid rows - should skip invalid rows."""
         csv_content = [
